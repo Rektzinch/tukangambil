@@ -1,0 +1,6 @@
+"use strict";
+const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
+const {Readable}=require("node:stream");const {pipeline}=require("node:stream/promises");
+const source=process.env.YTDLP_BINARY_URL||"https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux";
+const destination=path.join(__dirname,"..","node_modules","youtube-dl-exec","bin","yt-dlp");const temp=`${destination}.download`;
+async function install(){const response=await fetch(source,{redirect:"follow",headers:{"User-Agent":"TukangAmbil-Build/2.0"}});if(!response.ok||!response.body)throw new Error(`Gagal mengunduh yt-dlp (${response.status}).`);fs.mkdirSync(path.dirname(destination),{recursive:true});await pipeline(Readable.fromWeb(response.body),fs.createWriteStream(temp));const body=fs.readFileSync(temp);if(body.subarray(0,4).toString("hex")!=="7f454c46")throw new Error("Binary yt-dlp bukan ELF Linux.");const expected=String(process.env.YTDLP_BINARY_SHA256||"").toLowerCase();const actual=crypto.createHash("sha256").update(body).digest("hex");if(expected&&expected!==actual)throw new Error("Checksum yt-dlp tidak cocok.");fs.renameSync(temp,destination);fs.chmodSync(destination,0o755);console.log(`yt-dlp siap sha256=${actual.slice(0,12)}…`)}install().catch(error=>{fs.rmSync(temp,{force:true});console.error(error.message);process.exitCode=1});

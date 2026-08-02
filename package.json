@@ -1,0 +1,22 @@
+{
+  "name": "tukangambil",
+  "version": "2.0.1",
+  "description": "Vanilla JavaScript frontend with Vercel Node.js Functions for public media extraction.",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "node scripts/build.js",
+    "vercel-build": "npm run build",
+    "test": "node --test",
+    "check": "node --check lib/core.js && node --check api/extract.js && node --check api/download.js && node --check api/health.js && node --check public/app.js && node --check scripts/build.js && node --check scripts/install-extractor.js",
+    "verify": "npm run check && npm test",
+    "postinstall": "node scripts/install-extractor.js"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "dependencies": {
+    "youtube-dl-exec": "3.1.9"
+  }
+}

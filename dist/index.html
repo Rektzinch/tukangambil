@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1b1b1b"><meta name="description" content="Unduh media publik TikTok, Instagram, Facebook, Threads, dan X.">
+<title>TukangAmbil — Media Publik</title><link rel="stylesheet" href="/style.css">
+</head><body>
+<main class="shell">
+<section class="hero"><div><p class="eyebrow">PUBLIC MEDIA DOWNLOADER</p><h1>Ambil media.<br><em>Tanpa turun kualitas.</em></h1><p class="lead">Posting, Reel, foto, carousel, profil, dan Story publik yang masih aktif. Hasil bergantung pada akses publik dan aturan tiap platform.</p></div>
+<form id="downloadForm" class="panel"><label for="mediaUrl">Tautan media publik</label><div class="url-row"><input id="mediaUrl" type="url" inputmode="url" placeholder="https://www.instagram.com/reel/..." required><button id="pasteBtn" type="button">Tempel</button></div><div class="modes" role="group" aria-label="Mode unduhan"><button type="button" class="mode active" data-mode="auto" aria-pressed="true">Video + audio</button><button type="button" class="mode" data-mode="audio" aria-pressed="false">Audio saja</button><button type="button" class="mode" data-mode="mute" aria-pressed="false">Tanpa audio</button></div><button class="submit" type="submit"><span>Ambil dan preview</span></button><div id="scan" class="scan" hidden><span></span><b id="scanLabel">Memvalidasi tautan</b><small id="scanTime">00:00</small></div><div id="message" class="message" role="status" aria-live="polite"></div></form></section>
+<section id="results" hidden></section>
+<section class="stats"><div><small>Permintaan ekstraksi</small><strong id="statTotal">0</strong></div><div><small>Ekstraksi berhasil</small><strong id="statSuccess">0</strong></div><div><small>Ekstraksi gagal</small><strong id="statFailed">0</strong></div><div><small>Rasio ekstraksi</small><strong id="statRate">0%</strong></div></section>
+</main><footer>© 2026 TukangAmbil · URL tidak ditampilkan di log provider</footer><script src="/app.js" defer></script></body></html>

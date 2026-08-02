@@ -10,7 +10,6 @@ const {
 
 const TIKWM_URL = "https://www.tikwm.com/api/";
 const THREADSDL_URL = "https://www.threadsdl.app/api/threads";
-const LOVETHREADS_URL = "https://lovethreads.net/api/ajaxSearch";
 const INSTAGRAM_PROFILE_URLS = [
   "https://i.instagram.com/api/v1/users/web_profile_info/",
   "https://www.instagram.com/api/v1/users/web_profile_info/"
@@ -106,9 +105,9 @@ async function requestTikwm(classified, mode) {
   const data = payload.data;
   if (mode === "audio") return { platform: "tiktok", provider: "tikwm", resourceKind: classified.kind, title: data.title || "TikTok audio", author: data.author?.nickname || "", items: [{ type: "audio", url: data.music, thumb: data.cover, filename: `${safeName(data.title || "tiktok")}.mp3`, quality: "Original audio" }] };
   if (Array.isArray(data.images) && data.images.length) return { platform: "tiktok", provider: "tikwm", resourceKind: classified.kind, title: data.title || "TikTok slideshow", author: data.author?.nickname || "", items: data.images.map((url, i) => ({ type: "image", url, thumb: url, filename: `${safeName(data.title || "tiktok")}-${i + 1}.jpg`, quality: "Original" })) };
-  const url = data.play || data.hdplay;
+  const url = data.hdplay || data.play;
   if (!url) throw new Error("Video TikTok tidak tersedia.");
-  return { platform: "tiktok", provider: "tikwm", resourceKind: classified.kind, title: data.title || "TikTok video", author: data.author?.nickname || "", items: [{ type: "video", url, thumb: data.cover, filename: `${safeName(data.title || "tiktok")}.mp4`, quality: data.hdplay ? "HD" : "Standard", hasAudio: true, codec: "h264" }] };
+  return { platform: "tiktok", provider: "tikwm", resourceKind: classified.kind, title: data.title || "TikTok video", author: data.author?.nickname || "", items: [{ type: "video", url, thumb: data.cover, filename: `${safeName(data.title || "tiktok")}.mp4`, quality: url === data.hdplay ? "HD" : "Standard", hasAudio: true, codec: "h264" }] };
 }
 
 async function requestThreads(classified, mode) {

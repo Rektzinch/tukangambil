@@ -9,6 +9,7 @@ Downloader media publik untuk TikTok, Instagram, Facebook, Threads, dan X. Versi
 - Fallback provider paralel dengan deadline global.
 - Pemilihan format progressive yang memiliki video dan audio, dengan prioritas **resolusi asli tertinggi** (hingga 4K/super HD sesuai ketersediaan source); MP4/H.264 tetap dipilih saat resolusi sama untuk kompatibilitas pemutar.
 - Race provider memakai **jendela kualitas** (±8 detik): hasil cepat tetap dipertimbangkan, tetapi bila provider lain membawa resolusi lebih tinggi dalam jendela itu, hasil tertinggi yang dipakai.
+- Untuk TikTok, hasil terbaik diverifikasi **dapat diunduh** server-side; bila stream resolusi tertinggi diblokir tanpa sesi (mis. host `*-webapp-prime` mengembalikan 403), layanan otomatis memakai kualitas publik terbaik yang bisa diunduh dan menambahkan peringatan.
 - Batas ukuran unduhan default dinaikkan ke **1 GiB** agar video HD/4K tidak tertolak (atur lewat `MAX_DOWNLOAD_BYTES`).
 - Download langsung tanpa menampung seluruh file di memori browser.
 - Redirect media divalidasi per-hop, ukuran file dibatasi, dan permintaan dibatasi per IP.

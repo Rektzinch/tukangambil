@@ -173,6 +173,37 @@ async function requestCobalt(classified, mode, endpoint) {
   throw new Error(data.error?.code || "Cobalt tidak memberikan media.");
 }
 
+async function probeDownloadable(url) {
+  try {
+    const headers = { "User-Agent": "Mozilla/5.0 Chrome/127", "Accept-Encoding": "identity", Range: "bytes=0-0" };
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes("tiktok")) headers.Referer = "https://www.tiktok.com/";
+    else if (host.includes("instagram")) headers.Referer = "https://www.instagram.com/";
+    else if (host.includes("fbcdn")) headers.Referer = "https://www.facebook.com/";
+    else if (host.includes("twimg")) headers.Referer = "https://x.com/";
+    const response = await fetch(url, { headers, redirect: "follow", signal: AbortSignal.timeout(6000) });
+    return response.status === 200 || response.status === 206;
+  } catch {
+    return false;
+  }
+}
+
+async function verifyTiktokResult(winning, providerResults) {
+  const items = winning?.items || [];
+  const first = items[0];
+  if (!first || await probeDownloadable(first.url)) return winning;
+  const candidates = providerResults
+    .filter(entry => entry.result !== winning)
+    .sort((a, b) => b.score - a.score);
+  for (const candidate of candidates) {
+    const candidateFirst = candidate.result?.items?.[0];
+    if (candidateFirst && await probeDownloadable(candidateFirst.url)) {
+      return { ...candidate.result };
+    }
+  }
+  return winning;
+}
+
 function resultQuality(result) {
   let max = 0;
   for (const item of result?.items || []) {
@@ -199,16 +230,18 @@ async function raceProviders(attempts, mode, { graceMs = 8000 } = {}) {
     let best = null;
     let graceTimer = null;
     let finished = false;
+    const results = [];
     const finish = entry => { if (finished) return; finished = true; clearTimeout(graceTimer); clearTimeout(deadlineTimer); resolve(entry); };
     const fail = error => { if (finished) return; finished = true; clearTimeout(graceTimer); clearTimeout(deadlineTimer); reject(error); };
     const deadlineTimer = setTimeout(() => fail(Object.assign(new Error("Batas waktu pemrosesan tercapai."), { code: "GLOBAL_TIMEOUT", details: failures })), GLOBAL_DEADLINE_MS);
     for (const attempt of attempts) {
       Promise.resolve().then(attempt.run).then(raw => validateResult(raw, { mode })).then(result => {
         const score = resultQuality(result);
+        results.push({ result, provider: attempt.name, score });
         if (!best || score > best.score) best = { result, provider: attempt.name, durationMs: Date.now() - startedAt, score };
         pending -= 1;
-        if (pending === 0) return finish({ ...best, failures: [...failures] });
-        if (!graceTimer) graceTimer = setTimeout(() => { if (best) finish({ ...best, failures: [...failures] }); }, graceMs);
+        if (pending === 0) return finish({ ...best, failures: [...failures], results: [...results] });
+        if (!graceTimer) graceTimer = setTimeout(() => { if (best) finish({ ...best, failures: [...failures], results: [...results] }); }, graceMs);
       }).catch(error => {
         failures.push({ provider: attempt.name, ...sanitizeProviderError(error) });
         pending -= 1;
@@ -246,7 +279,12 @@ module.exports = async function handler(req, res) {
   if (!classified || classified.kind === "unknown") return res.status(400).json({ error: "URL publik tidak dikenali atau tidak didukung.", code: "UNSUPPORTED_URL" });
   if (classified.kind === "profile" && mode !== "auto") return res.status(400).json({ error: "Profil hanya mendukung mode otomatis.", code: "PROFILE_MODE_UNSUPPORTED" });
   try {
-    const { result, durationMs, failures = [] } = await raceProviders(buildAttempts(classified, mode), mode);
+    const { result: racedResult, durationMs, failures = [], results: providerResults = [] } = await raceProviders(buildAttempts(classified, mode), mode);
+    let result = classified.platform === "tiktok" ? await verifyTiktokResult(racedResult, providerResults) : racedResult;
+    if (result !== racedResult) {
+      result.warnings = [...(result.warnings || []), "Resolusi tertinggi membutuhkan sesi platform; dipakai kualitas publik terbaik yang dapat diunduh."];
+      result.downloadFallback = true;
+    }
     result.durationMs = durationMs;
     result.providerFailures = failures.map(item => ({ provider: item.provider, code: item.code, message: item.message }));
     applyDownloadFilenames(result);
@@ -264,3 +302,5 @@ module.exports.normalizeYtdlp = normalizeYtdlp;
 module.exports.pickBest = pickBest;
 module.exports.raceProviders = raceProviders;
 module.exports.buildAttempts = buildAttempts;
+module.exports.probeDownloadable = probeDownloadable;
+module.exports.verifyTiktokResult = verifyTiktokResult;

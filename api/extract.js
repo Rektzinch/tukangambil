@@ -67,15 +67,16 @@ function normalizeYtdlp(data, classified, mode) {
         type, url: selected.url, thumb: entry.thumbnail || data.thumbnail || null,
         filename: `${safeName(entry.title || data.title || `${classified.platform}-${index + 1}`)}.${ext}`,
         mime: type === "audio" ? "audio/mp4" : ext === "webm" ? "video/webm" : "video/mp4",
-        quality: type === "audio" ? `${Math.round(selected.abr || selected.tbr || 0) || "Original"} kbps` : selected.height ? `${selected.height}p` : "Kualitas tertinggi",
+        quality: type === "audio" ? `${Math.round(selected.abr || selected.tbr || 0) || "Original"} kbps` : selected.width && selected.height ? `${selected.width}×${selected.height}` : selected.height ? `${selected.height}p` : "Kualitas tertinggi",
         hasAudio: type === "video" ? selected.acodec !== "none" : undefined,
-        codec: selected.vcodec || selected.acodec
+        codec: selected.vcodec || selected.acodec,
+        height: selected.height || undefined
       });
       continue;
     }
     if (["auto", "image"].includes(mode) && entry.thumbnail) {
       const ext = extensionFromUrl(entry.thumbnail, "jpg");
-      items.push({ type: "image", url: entry.thumbnail, thumb: entry.thumbnail, filename: `${safeName(entry.title || `image-${index + 1}`)}.${ext}`, quality: entry.width && entry.height ? `${entry.width}×${entry.height}` : "Original" });
+      items.push({ type: "image", url: entry.thumbnail, thumb: entry.thumbnail, filename: `${safeName(entry.title || `image-${index + 1}`)}.${ext}`, quality: entry.width && entry.height ? `${entry.width}×${entry.height}` : "Original", height: entry.height || undefined });
     }
   }
   return {
@@ -123,8 +124,8 @@ async function requestThreads(classified, mode) {
   for (const [index, media] of data.medias.entries()) {
     const video = Array.isArray(media.videos) ? media.videos.filter(v => v?.url).at(-1) : null;
     const image = Array.isArray(media.images) ? media.images.filter(v => v?.url).sort((a,b)=>(b.width||0)*(b.height||0)-(a.width||0)*(a.height||0))[0] : null;
-    if (video) items.push({ type: "video", url: video.url, thumb: media.cover || null, filename: `threads-${index + 1}.mp4`, quality: media.height ? `${media.height}p` : "HD", hasAudio: true });
-    else if (image) items.push({ type: "image", url: image.url, thumb: image.url, filename: `threads-${index + 1}.jpg`, quality: image.width && image.height ? `${image.width}×${image.height}` : "Original" });
+    if (video) items.push({ type: "video", url: video.url, thumb: media.cover || null, filename: `threads-${index + 1}.mp4`, quality: media.width && media.height ? `${media.width}×${media.height}` : media.height ? `${media.height}p` : "HD", hasAudio: true, height: media.height || undefined });
+    else if (image) items.push({ type: "image", url: image.url, thumb: image.url, filename: `threads-${index + 1}.jpg`, quality: image.width && image.height ? `${image.width}×${image.height}` : "Original", height: image.height || undefined });
   }
   return { platform: "threads", provider: "threadsdl", resourceKind: classified.kind, title: String(data.text || "Threads media").split("\n")[0], description: data.text || "", author: data.username || classified.handle || "", tags: collectTags(data.text || ""), items };
 }
@@ -147,7 +148,7 @@ async function requestInstagramProfile(classified) {
         const type = media.is_video && media.video_url ? "video" : "image";
         const url = type === "video" ? media.video_url : media.display_url;
         if (!url) continue;
-        items.push({ type, url, thumb: media.display_url || null, filename: `instagram-${username}-${items.length + 1}.${type === "video" ? "mp4" : extensionFromUrl(url,"jpg")}`, quality: media.dimensions ? `${media.dimensions.width}×${media.dimensions.height}` : "Original", hasAudio: type === "video" ? true : undefined });
+        items.push({ type, url, thumb: media.display_url || null, filename: `instagram-${username}-${items.length + 1}.${type === "video" ? "mp4" : extensionFromUrl(url,"jpg")}`, quality: media.dimensions ? `${media.dimensions.width}×${media.dimensions.height}` : "Original", hasAudio: type === "video" ? true : undefined, height: media.dimensions?.height || undefined });
         if (items.length >= PROFILE_LIMIT) break;
       }
       if (items.length >= PROFILE_LIMIT) break;
@@ -172,20 +173,49 @@ async function requestCobalt(classified, mode, endpoint) {
   throw new Error(data.error?.code || "Cobalt tidak memberikan media.");
 }
 
-async function raceProviders(attempts, mode) {
+function resultQuality(result) {
+  let max = 0;
+  for (const item of result?.items || []) {
+    const explicit = Number(item?.height) || 0;
+    if (explicit > max) { max = explicit; continue; }
+    const label = String(item?.quality || "");
+    const dimensions = label.match(/(\d+)\s*[x×]\s*(\d+)/i);
+    if (dimensions) {
+      max = Math.max(max, Number(dimensions[1]), Number(dimensions[2]));
+    } else {
+      const height = label.match(/(\d{3,5})\s*p/i);
+      if (height) max = Math.max(max, Number(height[1]));
+    }
+  }
+  return max;
+}
+
+async function raceProviders(attempts, mode, { graceMs = 8000 } = {}) {
   const startedAt = Date.now();
   const failures = [];
   return new Promise((resolve, reject) => {
     let pending = attempts.length;
     if (!pending) return reject(Object.assign(new Error("Tidak ada provider yang tersedia."), { code: "NO_PROVIDER" }));
-    const timer = setTimeout(() => reject(Object.assign(new Error("Batas waktu pemrosesan tercapai."), { code: "GLOBAL_TIMEOUT", details: failures })), GLOBAL_DEADLINE_MS);
+    let best = null;
+    let graceTimer = null;
+    let finished = false;
+    const finish = entry => { if (finished) return; finished = true; clearTimeout(graceTimer); clearTimeout(deadlineTimer); resolve(entry); };
+    const fail = error => { if (finished) return; finished = true; clearTimeout(graceTimer); clearTimeout(deadlineTimer); reject(error); };
+    const deadlineTimer = setTimeout(() => fail(Object.assign(new Error("Batas waktu pemrosesan tercapai."), { code: "GLOBAL_TIMEOUT", details: failures })), GLOBAL_DEADLINE_MS);
     for (const attempt of attempts) {
       Promise.resolve().then(attempt.run).then(raw => validateResult(raw, { mode })).then(result => {
-        clearTimeout(timer); resolve({ result, provider: attempt.name, durationMs: Date.now() - startedAt });
+        const score = resultQuality(result);
+        if (!best || score > best.score) best = { result, provider: attempt.name, durationMs: Date.now() - startedAt, score };
+        pending -= 1;
+        if (pending === 0) return finish(best);
+        if (!graceTimer) graceTimer = setTimeout(() => { if (best) finish(best); }, graceMs);
       }).catch(error => {
         failures.push({ provider: attempt.name, ...sanitizeProviderError(error) });
         pending -= 1;
-        if (!pending) { clearTimeout(timer); reject(Object.assign(new Error("Semua mesin gagal memproses tautan tersebut."), { code: "ALL_PROVIDERS_FAILED", details: failures })); }
+        if (pending === 0) {
+          if (best) return finish(best);
+          fail(Object.assign(new Error("Semua mesin gagal memproses tautan tersebut."), { code: "ALL_PROVIDERS_FAILED", details: failures }));
+        }
       });
     }
   });

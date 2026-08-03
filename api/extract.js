@@ -4,9 +4,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   classifyUrl, collectTags, safeName, extensionFromUrl, mediaTypeFromExtension,
-  validateResult, applyDownloadFilenames, attachDownloadTokens, publicOrigin,
+  validateResult, applyDownloadFilenames, attachDownloadTokens,
   sanitizeProviderError
 } = require("../lib/core");
+const { createRateLimiter } = require("../lib/rate-limit");
 
 const TIKWM_URL = "https://www.tikwm.com/api/";
 const THREADSDL_URL = "https://www.threadsdl.app/api/threads";
@@ -15,6 +16,7 @@ const INSTAGRAM_PROFILE_URLS = [
   "https://www.instagram.com/api/v1/users/web_profile_info/"
 ];
 const PROVIDER_TIMEOUT_MS = 15000;
+const rateLimit = createRateLimiter({ max: 20 });
 const GLOBAL_DEADLINE_MS = 52000;
 const PROFILE_LIMIT = 24;
 let extractor;
@@ -55,7 +57,7 @@ function normalizeYtdlp(data, classified, mode) {
   const items = [];
   for (const [index, entry] of entries.entries()) {
     const formats = Array.isArray(entry.formats) ? entry.formats : [];
-    const selected = pickBest(formats, mode);
+    const selected = mode === "image" ? null : pickBest(formats, mode);
     if (selected?.url) {
       const type = mode === "audio" ? "audio" : "video";
       const ext = selected.ext || (type === "audio" ? "m4a" : "mp4");
@@ -69,7 +71,7 @@ function normalizeYtdlp(data, classified, mode) {
       });
       continue;
     }
-    if (mode === "auto" && entry.thumbnail) {
+    if (["auto", "image"].includes(mode) && entry.thumbnail) {
       const ext = extensionFromUrl(entry.thumbnail, "jpg");
       items.push({ type: "image", url: entry.thumbnail, thumb: entry.thumbnail, filename: `${safeName(entry.title || `image-${index + 1}`)}.${ext}`, quality: entry.width && entry.height ? `${entry.width}×${entry.height}` : "Original" });
     }
@@ -201,8 +203,13 @@ module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   if (req.method !== "POST") return res.status(405).json({ error: "Metode tidak didukung." });
+  const limited = rateLimit.check(req);
+  if (!limited.ok) {
+    res.setHeader("Retry-After", "60");
+    return res.status(429).json({ error: "Terlalu banyak permintaan. Coba lagi sebentar." });
+  }
   const url = typeof req.body?.url === "string" ? req.body.url.trim() : "";
-  const mode = ["auto", "audio", "mute"].includes(req.body?.mode) ? req.body.mode : "auto";
+  const mode = ["auto", "image", "audio", "mute"].includes(req.body?.mode) ? req.body.mode : "auto";
   const classified = classifyUrl(url);
   if (!classified || classified.kind === "unknown") return res.status(400).json({ error: "URL publik tidak dikenali atau tidak didukung.", code: "UNSUPPORTED_URL" });
   if (classified.kind === "profile" && mode !== "auto") return res.status(400).json({ error: "Profil hanya mendukung mode otomatis.", code: "PROFILE_MODE_UNSUPPORTED" });

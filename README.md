@@ -4,7 +4,7 @@ Downloader media publik untuk TikTok, Instagram, Facebook, Threads, dan X. Versi
 
 ## Kemampuan
 
-- Posting, Reel, foto, carousel, dan profil publik.
+- Posting, Reel, foto, carousel, dan profil publik, dengan mode unduhan Video + audio, Gambar, Audio saja, dan Tanpa audio.
 - Story publik TikTok, Instagram, dan Facebook selama masih aktif dan dapat diakses tanpa login; cookie opsional dapat dipasang untuk media yang memang memerlukan sesi pengguna.
 - Fallback provider paralel dengan deadline global.
 - Pemilihan format progressive yang memiliki video dan audio.
@@ -33,6 +33,8 @@ Script build menyalin aset dari `public/` ke `dist/`, sedangkan Vercel membangun
 - `COBALT_API_KEY`: token Cobalt opsional.
 - `COBALT_AUTH_SCHEME`: `Api-Key` atau `Bearer`.
 - `YTDLP_COOKIES_B64`: cookie Netscape yang di-encode Base64 untuk media yang memerlukan sesi. Jangan gunakan cookie akun utama.
+- `YTDLP_BINARY_URL` / `YTDLP_BINARY_SHA256`: saat `YTDLP_BINARY_URL` diisi (pin versi), `YTDLP_BINARY_SHA256` **wajib** diisi; bila tidak, install berhenti dengan error. Tanpa keduanya, binary `latest` dipakai dengan peringatan.
+- Contoh lengkap tersedia di `.env.example`.
 - `DOWNLOAD_TOKEN_SECRET`: secret acak untuk signed download token. Bila tidak tersedia, proxy hanya menerima permintaan same-origin.
 - `MAX_DOWNLOAD_BYTES`: batas ukuran unduhan; default 250 MiB.
 - `PUBLIC_ORIGIN`: origin produksi opsional.
@@ -46,7 +48,15 @@ npm run build
 npx vercel dev
 ```
 
-Proses instalasi mengunduh binary yt-dlp Linux. Untuk build yang sepenuhnya reproducible, isi `YTDLP_BINARY_URL` dengan URL versi tetap dan `YTDLP_BINARY_SHA256` dengan checksum resminya.
+Proses instalasi mengunduh binary yt-dlp Linux. Untuk build yang sepenuhnya reproducible, isi `YTDLP_BINARY_URL` dengan URL versi tetap dan `YTDLP_BINARY_SHA256` dengan checksum resminya; jika hanya salah satunya diisi, install gagal.
+
+## Perlindungan
+
+- Rate limit per IP pada endpoint `/api/extract` (20/menit) dan `/api/download` (40/menit) dengan jendela 60 detik.
+- Download media hanya dari daftar host yang diizinkan, dengan redirect divalidasi per-hop, batas ukuran streaming, dan `nosniff`.
+- Saat `DOWNLOAD_TOKEN_SECRET` diisi, unduhan memakai token HMAC bertanda tangan dengan masa berlaku 15 menit; tanpa secret, download dibatasi same-origin.
+- Header keamanan diterapkan global: CSP, HSTS, `X-Frame-Options: DENY`, COOP/CORP, dan lainnya.
+- Health endpoint hanya memaparkan kesiapan runtime, bukan konfigurasi rahasia.
 
 ## Catatan batasan
 

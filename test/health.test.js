@@ -67,8 +67,10 @@ test("health handler reflects environment variables", () => {
 
     health(req, res);
 
-    assert.equal(jsonStr.runtime.cobaltConfigured, true);
-    assert.equal(jsonStr.runtime.cookiesConfigured, true);
+    assert.equal(typeof jsonStr.runtime.ytdlp, "boolean");
+    assert.equal("cobaltConfigured" in jsonStr.runtime, false);
+    assert.equal("cookiesConfigured" in jsonStr.runtime, false);
+    assert.equal("signedDownloads" in jsonStr.runtime, false);
   } finally {
     if (originalCobalt !== undefined) {
       process.env.COBALT_API_URL = originalCobalt;

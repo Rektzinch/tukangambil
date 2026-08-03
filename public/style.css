@@ -346,6 +346,10 @@ h1 em:hover {
   z-index: 1;
 }
 
+.preview:has(audio) {
+  min-height: 200px;
+}
+
 .meta {
   padding: 20px;
   display: flex;
@@ -455,6 +459,13 @@ h1 em:hover {
 
 .tile:hover .tile-media img, .tile:hover .tile-media video {
   transform: scale(1.1);
+}
+
+.tile-badges {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 .tile h3 {
@@ -678,7 +689,7 @@ footer {
   }
 
   .grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 1px;
     background: var(--line);
     padding: 0;
@@ -700,5 +711,12 @@ footer {
 
   .stats div:last-child {
     border-right: 0;
+  }
+}
+
+/* Wide desktop (>= 1200px) */
+@media (min-width: 1200px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }

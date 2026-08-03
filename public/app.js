@@ -1,9 +1,268 @@
 "use strict";
-const form=document.querySelector("#downloadForm"),input=document.querySelector("#mediaUrl"),message=document.querySelector("#message"),results=document.querySelector("#results"),submit=form.querySelector(".submit"),scan=document.querySelector("#scan"),scanLabel=document.querySelector("#scanLabel"),scanTime=document.querySelector("#scanTime");let mode="auto",data=null,index=0,timer=null,modalReturnFocus=null;const statsKey="tukangambil:stats:v2";let stats=loadStats();
-function escapeHtml(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[c])}function loadStats(){try{const v=JSON.parse(localStorage.getItem(statsKey));return{total:Number(v?.total)||0,success:Number(v?.success)||0,failed:Number(v?.failed)||0}}catch{return{total:0,success:0,failed:0}}}function renderStats(){const done=stats.success+stats.failed;document.querySelector("#statTotal").textContent=stats.total;document.querySelector("#statSuccess").textContent=stats.success;document.querySelector("#statFailed").textContent=stats.failed;document.querySelector("#statRate").textContent=`${done?Math.round(stats.success/done*100):0}%`}function bump(k){stats[k]+=1;localStorage.setItem(statsKey,JSON.stringify(stats));renderStats()}function show(text,type="info"){message.textContent=text;message.className=`message show${type==="error"?" error":""}`}function resourceKind(url){try{const p=new URL(url).pathname.toLowerCase();if(p.includes("stories")||p.includes("story.php"))return"Story";if(p.includes("reel"))return"Reel";if(p.split("/").filter(Boolean).length===1)return"profil"}catch{}return"media"}function start(){const began=Date.now();scan.hidden=false;submit.disabled=true;scanLabel.textContent=`Memproses ${resourceKind(input.value)}`;timer=setInterval(()=>{const s=Math.floor((Date.now()-began)/1000);scanTime.textContent=`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`},250)}function stop(){clearInterval(timer);scan.hidden=true;submit.disabled=false}
-function mediaUrl(item,preview=false){const q=new URLSearchParams();if(item.downloadToken)q.set("token",item.downloadToken);else{q.set("url",item.url);q.set("filename",item.filename)}if(preview)q.set("preview","1");return`/api/download?${q}`}function thumbUrl(item){if(!item.thumb)return"";const q=new URLSearchParams({url:item.thumb,filename:"preview.jpg",preview:"1"});return`/api/download?${q}`}
-function preview(item){const u=escapeHtml(mediaUrl(item,true));if(item.type==="image")return`<img src="${u}" alt="Preview foto">`;if(item.type==="audio")return`<audio controls preload="metadata" src="${u}"></audio>`;return`<video controls playsinline preload="metadata"${item.thumb?` poster="${escapeHtml(thumbUrl(item))}"`:""} src="${u}" type="${escapeHtml(item.mime||"video/mp4")}"></video>`}
-function directDownload(event,item){event.preventDefault();const a=document.createElement("a");a.href=mediaUrl(item);a.download=item.filename||"media";a.rel="noopener";document.body.appendChild(a);a.click();a.remove();show(`${item.filename} mulai diunduh.`)}
-function bindDownloads(root,items){root.querySelectorAll("[data-dl]").forEach(a=>a.addEventListener("click",e=>directDownload(e,items[Number(a.dataset.dl)])))}function closeModal(){const m=document.querySelector(".modal");if(m)m.hidden=true;document.body.style.overflow="";modalReturnFocus?.focus();modalReturnFocus=null}function openModal(i,button){modalReturnFocus=button;const item=data.items[i];let m=document.querySelector(".modal");if(!m){m=document.createElement("div");m.className="modal";m.innerHTML='<div class="modal-box" role="dialog" aria-modal="true" aria-label="Preview media"><div class="modal-top"><b></b><button type="button" aria-label="Tutup">×</button></div><div class="modal-content"></div></div>';document.body.appendChild(m);m.addEventListener("click",e=>{if(e.target===m)closeModal()});m.querySelector("button").addEventListener("click",closeModal)}m.querySelector(".modal-top b").textContent=`${i+1} / ${data.items.length}`;m.querySelector(".modal-content").innerHTML=`<div class="preview">${preview(item)}</div><div class="meta"><h2>${escapeHtml(item.filename)}</h2><a class="download" href="${escapeHtml(mediaUrl(item))}" data-dl="${i}">Download media ini</a></div>`;bindDownloads(m,[...data.items]);m.hidden=false;document.body.style.overflow="hidden";m.querySelector("button").focus()}
-function render(){if(data.items.length>10||(data.items.length>2&&data.items.filter(x=>x.type==="image").length>2)){results.innerHTML=`<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author||"")}</p><button class="download-all" type="button">Download semua media</button></div><div class="grid">${data.items.map((item,i)=>`<article class="tile"><div class="tile-media">${item.type==="image"?`<img src="${escapeHtml(mediaUrl(item,true))}" alt="Preview">`:item.thumb?`<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail">`:`<span>${item.type.toUpperCase()}</span>`}</div><div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span></div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions"><button class="preview-btn" data-preview="${i}" type="button">Preview</button><a class="download" data-dl="${i}" href="${escapeHtml(mediaUrl(item))}">Download</a></div></article>`).join("")}</div></section>`;results.querySelectorAll("[data-preview]").forEach(b=>b.addEventListener("click",()=>openModal(Number(b.dataset.preview),b)));results.querySelector(".download-all").addEventListener("click",async()=>{show("Browser akan memulai unduhan satu per satu. Izinkan multiple downloads bila diminta.");for(const item of data.items){const a=document.createElement("a");a.href=mediaUrl(item);a.download=item.filename;document.body.appendChild(a);a.click();a.remove();await new Promise(r=>setTimeout(r,450))}})}else{const item=data.items[index];results.innerHTML=`<div class="results-title"><span>${escapeHtml(data.resourceKind||"media")} · ${escapeHtml(data.provider)}</span><b>${index+1}/${data.items.length}</b></div><section class="card"><div class="preview">${preview(item)}</div><div class="meta"><div class="badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span><span class="badge">${escapeHtml(item.quality)}</span></div><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author||"")}</p>${data.warnings?.length?`<p>${data.warnings.map(escapeHtml).join(" · ")}</p>`:""}<a class="download" data-dl="${index}" href="${escapeHtml(mediaUrl(item))}">Download media ini</a>${data.items.length>1?'<div class="nav"><button data-nav="prev">Sebelumnya</button><button data-nav="next">Berikutnya</button></div>':""}</div></section>`;results.querySelectorAll("[data-nav]").forEach(b=>b.addEventListener("click",()=>{index=b.dataset.nav==="next"?(index+1)%data.items.length:(index-1+data.items.length)%data.items.length;render()}))}results.hidden=false;bindDownloads(results,data.items)}
-document.querySelectorAll(".mode").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".mode").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-pressed","false")});b.classList.add("active");b.setAttribute("aria-pressed","true");mode=b.dataset.mode}));document.querySelector("#pasteBtn").addEventListener("click",async()=>{try{input.value=await navigator.clipboard.readText();input.focus()}catch{show("Izin clipboard tidak tersedia.","error")}});form.addEventListener("submit",async e=>{e.preventDefault();results.hidden=true;message.className="message";bump("total");start();try{const r=await fetch("/api/extract",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:input.value.trim(),mode})});const body=await r.json();if(!r.ok)throw new Error(body.error||"Ekstraksi gagal.");data=body;index=0;render();bump("success");show(`${body.items.length} media berhasil diekstrak.`,"success");results.scrollIntoView({behavior:"smooth"})}catch(err){bump("failed");show(err.message||"Ekstraksi gagal.","error")}finally{stop()}});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});renderStats();
+
+const form = document.querySelector("#downloadForm");
+const input = document.querySelector("#mediaUrl");
+const message = document.querySelector("#message");
+const results = document.querySelector("#results");
+const submit = form.querySelector(".submit");
+const scan = document.querySelector("#scan");
+const scanLabel = document.querySelector("#scanLabel");
+const scanTime = document.querySelector("#scanTime");
+let mode = "auto";
+let data = null;
+let index = 0;
+let timer = null;
+let timeoutWarning = null;
+let modalReturnFocus = null;
+
+const statsKey = "tukangambil:stats:v2";
+let stats = loadStats();
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
+  })[char]);
+}
+
+function loadStats() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(statsKey));
+    return { total: Number(stored?.total) || 0, success: Number(stored?.success) || 0, failed: Number(stored?.failed) || 0 };
+  } catch {
+    return { total: 0, success: 0, failed: 0 };
+  }
+}
+
+function renderStats() {
+  const done = stats.success + stats.failed;
+  document.querySelector("#statTotal").textContent = stats.total;
+  document.querySelector("#statSuccess").textContent = stats.success;
+  document.querySelector("#statFailed").textContent = stats.failed;
+  document.querySelector("#statRate").textContent = `${done ? Math.round((stats.success / done) * 100) : 0}%`;
+}
+
+function bump(key) {
+  stats[key] += 1;
+  try {
+    localStorage.setItem(statsKey, JSON.stringify(stats));
+  } catch {
+    // Penyimpanan lokal diblokir (mis. private mode); statistik tetap dihitung di sesi ini.
+  }
+  renderStats();
+}
+
+function show(text, type = "info") {
+  message.textContent = text;
+  message.className = `message show${type === "error" ? " error" : ""}`;
+}
+
+function resourceKind(url) {
+  try {
+    const path = new URL(url).pathname.toLowerCase();
+    if (path.includes("stories") || path.includes("story.php")) return "Story";
+    if (path.includes("reel")) return "Reel";
+    if (path.split("/").filter(Boolean).length === 1) return "profil";
+  } catch {}
+  return "media";
+}
+
+function normalizeUrl(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function start() {
+  const began = Date.now();
+  scan.hidden = false;
+  submit.disabled = true;
+  scanLabel.textContent = `Memproses ${resourceKind(input.value)}`;
+  timer = setInterval(() => {
+    const seconds = Math.floor((Date.now() - began) / 1000);
+    scanTime.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+    if (seconds >= 45) scanLabel.textContent = "Proses mendekati batas waktu server…";
+  }, 250);
+  timeoutWarning = setTimeout(() => {
+    scanLabel.textContent = "Proses mendekati batas waktu server…";
+  }, 45_000);
+}
+
+function stop() {
+  clearInterval(timer);
+  clearTimeout(timeoutWarning);
+  scan.hidden = true;
+  submit.disabled = false;
+}
+
+function mediaUrl(item, preview = false) {
+  const query = new URLSearchParams();
+  if (item.downloadToken) query.set("token", item.downloadToken);
+  else {
+    query.set("url", item.url);
+    query.set("filename", item.filename);
+  }
+  if (preview) query.set("preview", "1");
+  return `/api/download?${query}`;
+}
+
+function thumbUrl(item) {
+  if (!item.thumb) return "";
+  const query = new URLSearchParams({ url: item.thumb, filename: "preview.jpg", preview: "1" });
+  return `/api/download?${query}`;
+}
+
+function preview(item) {
+  const url = escapeHtml(mediaUrl(item, true));
+  if (item.type === "image") return `<img src="${url}" alt="${escapeHtml(item.filename)}">`;
+  if (item.type === "audio") return `<audio controls preload="metadata" src="${url}"></audio>`;
+  const poster = item.thumb ? ` poster="${escapeHtml(thumbUrl(item))}"` : "";
+  return `<video controls playsinline preload="metadata"${poster} src="${url}" type="${escapeHtml(item.mime || "video/mp4")}"></video>`;
+}
+
+function directDownload(event, item) {
+  event.preventDefault();
+  const anchor = document.createElement("a");
+  anchor.href = mediaUrl(item);
+  anchor.download = item.filename || "media";
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  show(`${item.filename} mulai diunduh.`);
+}
+
+function bindDownloads(root, items) {
+  root.querySelectorAll("[data-dl]").forEach(anchor => anchor.addEventListener("click", event => directDownload(event, items[Number(anchor.dataset.dl)])));
+}
+
+function closeModal() {
+  const modal = document.querySelector(".modal");
+  if (modal) modal.hidden = true;
+  document.body.style.overflow = "";
+  modalReturnFocus?.focus();
+  modalReturnFocus = null;
+}
+
+function openModal(i, button) {
+  modalReturnFocus = button;
+  const item = data.items[i];
+  let modal = document.querySelector(".modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.className = "modal";
+    modal.innerHTML = '<div class="modal-box" role="dialog" aria-modal="true" aria-label="Preview media"><div class="modal-top"><b></b><button type="button" aria-label="Tutup">×</button></div><div class="modal-content"></div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener("click", event => {
+      if (event.target === modal) closeModal();
+    });
+    modal.querySelector("button").addEventListener("click", closeModal);
+    modal.addEventListener("keydown", event => {
+      if (event.key !== "Tab") return;
+      const focusables = [...modal.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex=\"-1\"])")]
+        .filter(element => !element.disabled);
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+  }
+  modal.querySelector(".modal-top b").textContent = `${i + 1} / ${data.items.length}`;
+  modal.querySelector(".modal-content").innerHTML = `<div class="preview">${preview(item)}</div><div class="meta"><h2>${escapeHtml(item.filename)}</h2><a class="download" href="${escapeHtml(mediaUrl(item))}" data-dl="${i}">Download media ini</a></div>`;
+  bindDownloads(modal, [...data.items]);
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+  modal.querySelector("button").focus();
+}
+
+function render() {
+  const isCollection = data.items.length > 2;
+  if (isCollection) {
+    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p><button class="download-all" type="button">Download semua media</button></div><div class="grid">${data.items.map((item, i) => `<article class="tile"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span></div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions"><button class="preview-btn" data-preview="${i}" type="button">Preview</button><a class="download" data-dl="${i}" href="${escapeHtml(mediaUrl(item))}">Download</a></div></article>`).join("")}</div></section>`;
+    results.querySelectorAll("[data-preview]").forEach(button => button.addEventListener("click", () => openModal(Number(button.dataset.preview), button)));
+    results.querySelector(".download-all").addEventListener("click", async () => {
+      show("Browser akan memulai unduhan satu per satu. Izinkan multiple downloads bila diminta.");
+      for (const item of data.items) {
+        const anchor = document.createElement("a");
+        anchor.href = mediaUrl(item);
+        anchor.download = item.filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        await new Promise(resolve => setTimeout(resolve, 450));
+      }
+    });
+  } else {
+    const item = data.items[index];
+    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.resourceKind || "media")} · ${escapeHtml(data.provider)}</span><b>${index + 1}/${data.items.length}</b></div><section class="card"><div class="preview">${preview(item)}</div><div class="meta"><div class="badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span><span class="badge">${escapeHtml(item.quality)}</span></div><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${data.warnings?.length ? `<p>${data.warnings.map(escapeHtml).join(" · ")}</p>` : ""}<a class="download" data-dl="${index}" href="${escapeHtml(mediaUrl(item))}">Download media ini</a>${data.items.length > 1 ? '<div class="nav"><button data-nav="prev">Sebelumnya</button><button data-nav="next">Berikutnya</button></div>' : ""}</div></section>`;
+    results.querySelectorAll("[data-nav]").forEach(button => button.addEventListener("click", () => {
+      index = button.dataset.nav === "next" ? (index + 1) % data.items.length : (index - 1 + data.items.length) % data.items.length;
+      render();
+    }));
+  }
+  results.hidden = false;
+  bindDownloads(results, data.items);
+}
+
+document.querySelectorAll(".mode").forEach(button => button.addEventListener("click", () => {
+  document.querySelectorAll(".mode").forEach(candidate => {
+    candidate.classList.remove("active");
+    candidate.setAttribute("aria-pressed", "false");
+  });
+  button.classList.add("active");
+  button.setAttribute("aria-pressed", "true");
+  mode = button.dataset.mode;
+}));
+
+document.querySelector("#pasteBtn").addEventListener("click", async () => {
+  try {
+    input.value = await navigator.clipboard.readText();
+    input.focus();
+  } catch {
+    show("Izin clipboard tidak tersedia.", "error");
+  }
+});
+
+form.addEventListener("submit", async event => {
+  event.preventDefault();
+  const url = normalizeUrl(input.value);
+  if (!url) {
+    show("Masukkan tautan media terlebih dahulu.", "error");
+    return;
+  }
+  input.value = url;
+  results.hidden = true;
+  message.className = "message";
+  bump("total");
+  start();
+  try {
+    const response = await fetch("/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, mode })
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || "Ekstraksi gagal.");
+    data = body;
+    index = 0;
+    render();
+    bump("success");
+    show(`${body.items.length} media berhasil diekstrak.`, "success");
+    results.scrollIntoView({ behavior: "smooth" });
+  } catch (error) {
+    bump("failed");
+    show(error.message || "Ekstraksi gagal.", "error");
+  } finally {
+    stop();
+  }
+});
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") closeModal();
+});
+
+renderStats();

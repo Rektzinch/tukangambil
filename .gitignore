@@ -1,3 +1,1 @@
-node_modules/
-.npm/
-dist/
+node_modules\n.vercel\n.env\n*.log\ndist

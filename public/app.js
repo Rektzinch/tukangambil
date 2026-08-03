@@ -8,6 +8,11 @@ const submit = form.querySelector(".submit");
 const scan = document.querySelector("#scan");
 const scanLabel = document.querySelector("#scanLabel");
 const scanTime = document.querySelector("#scanTime");
+const pasteBtn = document.querySelector("#pasteBtn");
+const submitText = submit.querySelector("span");
+const formHint = document.querySelector("#formHint");
+const formHintIcon = document.querySelector("#formHintIcon");
+const formHintText = document.querySelector("#formHintText");
 let mode = "auto";
 let data = null;
 let index = 0;
@@ -54,7 +59,34 @@ function bump(key) {
 
 function show(text, type = "info") {
   message.textContent = text;
-  message.className = `message show${type === "error" ? " error" : ""}`;
+  message.className = `message show ${type}`;
+}
+
+function platformFromUrl(value) {
+  try {
+    const host = new URL(normalizeUrl(value)).hostname.replace(/^www\./, "").toLowerCase();
+    if (host.includes("instagram.com")) return "Instagram";
+    if (host.includes("tiktok.com")) return "TikTok";
+    if (host.includes("facebook.com") || host === "fb.watch") return "Facebook";
+    if (host.includes("threads.net") || host.includes("threads.com")) return "Threads";
+    if (host === "x.com" || host.includes("twitter.com")) return "X";
+  } catch {}
+  return "";
+}
+
+function updateUrlFeedback() {
+  const platform = platformFromUrl(input.value);
+  if (platform) {
+    formHint.classList.add("detected");
+    formHintIcon.textContent = "✓";
+    formHintText.textContent = `${platform} terdeteksi. Tautan siap diproses.`;
+  } else {
+    formHint.classList.remove("detected");
+    formHintIcon.textContent = "✦";
+    formHintText.textContent = input.value.trim()
+      ? "Pastikan tautan berasal dari platform yang didukung."
+      : "Hanya untuk konten publik. Kami tidak menyimpan URL kamu.";
+  }
 }
 
 function resourceKind(url) {
@@ -78,12 +110,16 @@ function start() {
   scan.hidden = false;
   scanTime.textContent = "00:00";
   submit.disabled = true;
+  submitText.textContent = "Sedang mengambil";
   form.setAttribute("aria-busy", "true");
   scanLabel.textContent = `Memproses ${resourceKind(input.value)}`;
   timer = setInterval(() => {
     const seconds = Math.floor((Date.now() - began) / 1000);
     scanTime.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
     if (seconds >= 45) scanLabel.textContent = "Proses mendekati batas waktu server…";
+    else if (seconds >= 18) scanLabel.textContent = "Menyiapkan preview media";
+    else if (seconds >= 8) scanLabel.textContent = "Memilih kualitas terbaik";
+    else if (seconds >= 3) scanLabel.textContent = "Menghubungi provider";
   }, 250);
   timeoutWarning = setTimeout(() => {
     scanLabel.textContent = "Proses mendekati batas waktu server…";
@@ -95,6 +131,7 @@ function stop() {
   clearTimeout(timeoutWarning);
   scan.hidden = true;
   submit.disabled = false;
+  submitText.textContent = "Ambil dan preview";
   form.removeAttribute("aria-busy");
 }
 
@@ -240,14 +277,19 @@ document.querySelectorAll(".mode").forEach(button => button.addEventListener("cl
   mode = button.dataset.mode;
 }));
 
-document.querySelector("#pasteBtn").addEventListener("click", async () => {
+pasteBtn.addEventListener("click", async () => {
   try {
     input.value = await navigator.clipboard.readText();
+    updateUrlFeedback();
+    pasteBtn.firstChild.textContent = "Ditempel ";
+    setTimeout(() => { pasteBtn.firstChild.textContent = "Tempel "; }, 1400);
     input.focus();
   } catch {
     show("Izin clipboard tidak tersedia.", "error");
   }
 });
+
+input.addEventListener("input", updateUrlFeedback);
 
 form.addEventListener("submit", async event => {
   event.preventDefault();

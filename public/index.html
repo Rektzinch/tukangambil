@@ -1,12 +1,55 @@
 <!doctype html>
 <html lang="id">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1b1b1b"><meta name="description" content="Unduh media publik TikTok, Instagram, Facebook, Threads, dan X.">
-<title>TukangAmbil — Media Publik</title><link rel="stylesheet" href="/style.css">
-</head><body>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b1115"><meta name="description" content="Unduh media publik TikTok, Instagram, Facebook, Threads, dan X.">
+<title>TukangAmbil — Public media, made simple</title><link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="page-noise" aria-hidden="true"></div>
+<header class="topbar shell">
+  <a class="brand" href="/" aria-label="TukangAmbil beranda"><span class="brand-mark"><i></i><i></i><i></i></span><span>Tukang<span>Ambil</span></span></a>
+  <nav class="topnav" aria-label="Navigasi utama"><a href="#how">Cara kerja</a><a href="#stats">Aktivitas</a></nav>
+  <div class="service-pill"><span></span> Provider online</div>
+</header>
+
 <main class="shell">
-<section class="hero"><div><p class="eyebrow">PUBLIC MEDIA DOWNLOADER</p><h1>Ambil media.<br><em>Tanpa turun kualitas.</em></h1><p class="lead">Posting, Reel, foto, carousel, profil, dan Story publik yang masih aktif. Hasil bergantung pada akses publik dan aturan tiap platform.</p></div>
-<form id="downloadForm" class="panel" novalidate><label for="mediaUrl">Tautan media publik</label><div class="url-row"><input id="mediaUrl" type="url" inputmode="url" placeholder="https://www.instagram.com/reel/..." required><button id="pasteBtn" type="button">Tempel</button></div><div class="modes" role="group" aria-label="Mode unduhan"><button type="button" class="mode active" data-mode="auto" aria-pressed="true">Video + audio</button><button type="button" class="mode" data-mode="image" aria-pressed="false">Gambar</button><button type="button" class="mode" data-mode="audio" aria-pressed="false">Audio saja</button><button type="button" class="mode" data-mode="mute" aria-pressed="false">Tanpa audio</button></div><button class="submit" type="submit"><span>Ambil dan preview</span></button><div id="scan" class="scan" hidden><span></span><b id="scanLabel">Memvalidasi tautan</b><small id="scanTime">00:00</small></div><div id="message" class="message" role="status" aria-live="polite"></div></form></section>
-<section id="results" hidden></section>
-<section class="stats"><div><small>Permintaan ekstraksi</small><strong id="statTotal">0</strong></div><div><small>Ekstraksi berhasil</small><strong id="statSuccess">0</strong></div><div><small>Ekstraksi gagal</small><strong id="statFailed">0</strong></div><div><small>Rasio ekstraksi</small><strong id="statRate">0%</strong></div></section>
-</main><footer>© 2026 TukangAmbil · URL tidak ditampilkan di log provider</footer><script src="/app.js" defer></script></body></html>
+  <section class="hero" aria-labelledby="heroTitle">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="eyebrow-dot"></span> PUBLIC MEDIA DOWNLOADER <span class="eyebrow-line"></span> 02 / 26</p>
+      <h1 id="heroTitle">Simpan yang<br><em>ingin diingat.</em></h1>
+      <p class="lead">Ambil video, foto, carousel, atau audio dari tautan publik—cepat, jernih, dan tanpa watermark tambahan.</p>
+      <div class="trust-row"><span><b>01</b> Tempel URL</span><span><b>02</b> Pilih format</span><span><b>03</b> Unduh</span></div>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
+      <div class="visual-card visual-main"><div class="visual-top"><span class="visual-dot"></span><span>EXTRACTION READY</span><small>● LIVE</small></div><div class="visual-wave"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><div class="visual-meta"><strong>4K / ORIGINAL</strong><span>MP4 · 00:32</span></div></div>
+      <div class="visual-card visual-float"><span class="float-icon">↗</span><div><b>Tanpa watermark</b><small>File siap dipakai</small></div></div>
+      <div class="visual-stamp">PUBLIC<br><b>MEDIA</b><br>UTILITY</div>
+    </div>
+  </section>
+
+  <section class="workspace" id="download" aria-label="Form unduhan">
+    <form id="downloadForm" class="panel" novalidate>
+      <div class="panel-heading"><div><span class="section-kicker">START HERE</span><h2>Masukkan tautan.</h2></div><span class="panel-number">01</span></div>
+      <label for="mediaUrl">Tautan media publik</label>
+      <div class="url-row"><div class="input-shell"><span class="input-icon">↗</span><input id="mediaUrl" type="url" inputmode="url" placeholder="instagram.com/reel/..." required><span class="input-check" aria-hidden="true">✓</span></div><button id="pasteBtn" type="button">Tempel <kbd>⌘ V</kbd></button></div>
+      <div class="modes" role="group" aria-label="Mode unduhan"><button type="button" class="mode active" data-mode="auto" aria-pressed="true"><span class="mode-icon">◉</span><span><b>Video + audio</b><small>Paling lengkap</small></span><i>↗</i></button><button type="button" class="mode" data-mode="image" aria-pressed="false"><span class="mode-icon">▧</span><span><b>Gambar</b><small>JPG / PNG</small></span><i>↗</i></button><button type="button" class="mode" data-mode="audio" aria-pressed="false"><span class="mode-icon">♫</span><span><b>Audio saja</b><small>MP3 / M4A</small></span><i>↗</i></button><button type="button" class="mode" data-mode="mute" aria-pressed="false"><span class="mode-icon">◌</span><span><b>Tanpa audio</b><small>Video only</small></span><i>↗</i></button></div>
+      <button class="submit" type="submit"><span>Ambil dan preview</span><i>↗</i></button>
+      <div id="scan" class="scan" hidden><span></span><b id="scanLabel">Memvalidasi tautan</b><small id="scanTime">00:00</small></div>
+      <div id="message" class="message" role="status" aria-live="polite"></div>
+      <p class="form-note" id="formHint"><span id="formHintIcon">✦</span><span id="formHintText">Hanya untuk konten publik. Kami tidak menyimpan URL kamu.</span></p>
+    </form>
+    <aside class="side-note" id="how">
+      <div class="side-note-head"><span class="section-kicker">HOW IT WORKS</span><span class="panel-number">02</span></div>
+      <h2>Tiga langkah,<br><em>satu file siap.</em></h2>
+      <div class="steps"><div class="step"><span>01</span><div><b>Tempel tautan</b><p>Salin URL dari platform favoritmu.</p></div></div><div class="step"><span>02</span><div><b>Atur output</b><p>Pilih media yang kamu butuhkan.</p></div></div><div class="step"><span>03</span><div><b>Preview & simpan</b><p>Cek hasilnya sebelum mengunduh.</p></div></div></div>
+      <div class="platforms"><small>DIDUKUNG DI</small><div><span>◎ Instagram</span><span>♪ TikTok</span><span>f Facebook</span><span>𝕏 X</span></div></div>
+    </aside>
+  </section>
+
+  <section id="results" hidden></section>
+  <section class="stats" id="stats" aria-label="Statistik penggunaan"><div><small>Permintaan ekstraksi</small><strong id="statTotal">0</strong><span class="stat-mark">↗</span></div><div><small>Ekstraksi berhasil</small><strong id="statSuccess">0</strong><span class="stat-mark">✦</span></div><div><small>Ekstraksi gagal</small><strong id="statFailed">0</strong><span class="stat-mark">×</span></div><div><small>Rasio ekstraksi</small><strong id="statRate">0%</strong><span class="stat-mark">%</span></div></section>
+</main>
+<footer><span>TukangAmbil</span> · Public media utility <i>—</i> URL tidak ditampilkan di log provider · 2026</footer>
+<script src="/app.js" defer></script>
+</body></html>

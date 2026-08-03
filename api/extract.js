@@ -207,8 +207,8 @@ async function raceProviders(attempts, mode, { graceMs = 8000 } = {}) {
         const score = resultQuality(result);
         if (!best || score > best.score) best = { result, provider: attempt.name, durationMs: Date.now() - startedAt, score };
         pending -= 1;
-        if (pending === 0) return finish(best);
-        if (!graceTimer) graceTimer = setTimeout(() => { if (best) finish(best); }, graceMs);
+        if (pending === 0) return finish({ ...best, failures: [...failures] });
+        if (!graceTimer) graceTimer = setTimeout(() => { if (best) finish({ ...best, failures: [...failures] }); }, graceMs);
       }).catch(error => {
         failures.push({ provider: attempt.name, ...sanitizeProviderError(error) });
         pending -= 1;
@@ -246,8 +246,9 @@ module.exports = async function handler(req, res) {
   if (!classified || classified.kind === "unknown") return res.status(400).json({ error: "URL publik tidak dikenali atau tidak didukung.", code: "UNSUPPORTED_URL" });
   if (classified.kind === "profile" && mode !== "auto") return res.status(400).json({ error: "Profil hanya mendukung mode otomatis.", code: "PROFILE_MODE_UNSUPPORTED" });
   try {
-    const { result, durationMs } = await raceProviders(buildAttempts(classified, mode), mode);
+    const { result, durationMs, failures = [] } = await raceProviders(buildAttempts(classified, mode), mode);
     result.durationMs = durationMs;
+    result.providerFailures = failures.map(item => ({ provider: item.provider, code: item.code, message: item.message }));
     applyDownloadFilenames(result);
     attachDownloadTokens(result);
     result.downloadSecurity = process.env.DOWNLOAD_TOKEN_SECRET ? "signed" : "same-origin";

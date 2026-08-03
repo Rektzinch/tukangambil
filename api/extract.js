@@ -40,10 +40,12 @@ function providerEndpoints() {
 
 function pickBest(formats, mode) {
   const score = f => {
-    const extScore = f.ext === "mp4" ? 2_000_000_000 : f.ext === "m4a" ? 1_000_000_000 : 0;
+    const height = Number(f.height) || 0;
+    const bitrate = Number(f.tbr || f.abr) || 0;
+    const extBonus = f.ext === "mp4" ? 1_000 : f.ext === "m4a" ? 500 : 0;
     const codec = String(f.vcodec || "").toLowerCase();
-    const codecScore = /^(?:avc1|h264)/.test(codec) ? 1_000_000_000 : /^(?:hev1|hvc1|hevc)/.test(codec) ? -500_000_000 : 0;
-    return extScore + codecScore + (Number(f.height) || 0) * 1_000_000 + (Number(f.tbr || f.abr) || 0) * 1000 + (Number(f.filesize || f.filesize_approx) || 0) / 1000;
+    const codecBonus = /^(?:avc1|h264)/.test(codec) ? 1_000 : 0;
+    return height * 1_000_000 + bitrate * 10_000 + extBonus + codecBonus;
   };
   let candidates = formats.filter(f => f?.url);
   if (mode === "audio") candidates = candidates.filter(f => f.vcodec === "none" && f.acodec && f.acodec !== "none");

@@ -7,8 +7,8 @@ Downloader media publik untuk TikTok, Instagram, Facebook, Threads, dan X. Versi
 - Posting, Reel, foto, carousel, dan profil publik, dengan mode unduhan Video + audio, Gambar, Audio saja, dan Tanpa audio.
 - Story publik TikTok, Instagram, dan Facebook selama masih aktif dan dapat diakses tanpa login; cookie opsional dapat dipasang untuk media yang memang memerlukan sesi pengguna.
 - Fallback provider paralel dengan deadline global.
-- Pemilihan format progressive yang memiliki video dan audio.
-- Prioritas MP4/H.264 untuk mengurangi green screen dan masalah kompatibilitas.
+- Pemilihan format progressive yang memiliki video dan audio, dengan prioritas **resolusi asli tertinggi** (hingga 4K/super HD sesuai ketersediaan source); MP4/H.264 tetap dipilih saat resolusi sama untuk kompatibilitas pemutar.
+- Batas ukuran unduhan default dinaikkan ke **1 GiB** agar video HD/4K tidak tertolak (atur lewat `MAX_DOWNLOAD_BYTES`).
 - Download langsung tanpa menampung seluruh file di memori browser.
 - Redirect media divalidasi per-hop, ukuran file dibatasi, dan permintaan dibatasi per IP.
 - URL pengguna disanitasi dari log provider.
@@ -36,7 +36,7 @@ Script build menyalin aset dari `public/` ke `dist/`, sedangkan Vercel membangun
 - `YTDLP_BINARY_URL` / `YTDLP_BINARY_SHA256`: saat `YTDLP_BINARY_URL` diisi (pin versi), `YTDLP_BINARY_SHA256` **wajib** diisi; bila tidak, install berhenti dengan error. Tanpa keduanya, binary `latest` dipakai dengan peringatan.
 - Contoh lengkap tersedia di `.env.example`.
 - `DOWNLOAD_TOKEN_SECRET`: secret acak untuk signed download token. Bila tidak tersedia, proxy hanya menerima permintaan same-origin.
-- `MAX_DOWNLOAD_BYTES`: batas ukuran unduhan; default 250 MiB.
+- `MAX_DOWNLOAD_BYTES`: batas ukuran unduhan; default 1 GiB.
 - `PUBLIC_ORIGIN`: origin produksi opsional.
 
 ## Pengembangan

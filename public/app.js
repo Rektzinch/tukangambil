@@ -14,6 +14,7 @@ let index = 0;
 let timer = null;
 let timeoutWarning = null;
 let modalReturnFocus = null;
+let extractController = null;
 
 const statsKey = "tukangambil:stats:v2";
 let stats = loadStats();
@@ -75,7 +76,9 @@ function normalizeUrl(value) {
 function start() {
   const began = Date.now();
   scan.hidden = false;
+  scanTime.textContent = "00:00";
   submit.disabled = true;
+  form.setAttribute("aria-busy", "true");
   scanLabel.textContent = `Memproses ${resourceKind(input.value)}`;
   timer = setInterval(() => {
     const seconds = Math.floor((Date.now() - began) / 1000);
@@ -92,6 +95,7 @@ function stop() {
   clearTimeout(timeoutWarning);
   scan.hidden = true;
   submit.disabled = false;
+  form.removeAttribute("aria-busy");
 }
 
 function mediaUrl(item, preview = false) {
@@ -133,6 +137,23 @@ function directDownload(event, item) {
 
 function bindDownloads(root, items) {
   root.querySelectorAll("[data-dl]").forEach(anchor => anchor.addEventListener("click", event => directDownload(event, items[Number(anchor.dataset.dl)])));
+}
+
+async function readApiResponse(response) {
+  const raw = await response.text();
+  let body = {};
+  try {
+    body = raw ? JSON.parse(raw) : {};
+  } catch {
+    // Proxies and platform errors can return HTML or an empty body.
+  }
+  if (!response.ok) {
+    throw new Error(body.error || `Server gagal memproses permintaan (${response.status}).`);
+  }
+  if (!Array.isArray(body.items) || body.items.length === 0) {
+    throw new Error("Server tidak mengembalikan media yang dapat diunduh.");
+  }
+  return body;
 }
 
 function closeModal() {
@@ -182,7 +203,8 @@ function openModal(i, button) {
 function render() {
   const isCollection = data.items.length > 2;
   if (isCollection) {
-    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p><button class="download-all" type="button">Download semua media</button></div><div class="grid">${data.items.map((item, i) => `<article class="tile"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span></div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions"><button class="preview-btn" data-preview="${i}" type="button">Preview</button><a class="download" data-dl="${i}" href="${escapeHtml(mediaUrl(item))}">Download</a></div></article>`).join("")}</div></section>`;
+    const collectionWarnings = data.warnings?.length ? `<div class="message show">${data.warnings.map(escapeHtml).join(" · ")}</div>` : "";
+    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div><div class="grid">${data.items.map((item, i) => `<article class="tile"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span></div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions"><button class="preview-btn" data-preview="${i}" type="button">Preview</button><a class="download" data-dl="${i}" href="${escapeHtml(mediaUrl(item))}">Download</a></div></article>`).join("")}</div></section>`;
     results.querySelectorAll("[data-preview]").forEach(button => button.addEventListener("click", () => openModal(Number(button.dataset.preview), button)));
     results.querySelector(".download-all").addEventListener("click", async () => {
       show("Browser akan memulai unduhan satu per satu. Izinkan multiple downloads bila diminta.");
@@ -229,6 +251,7 @@ document.querySelector("#pasteBtn").addEventListener("click", async () => {
 
 form.addEventListener("submit", async event => {
   event.preventDefault();
+  if (extractController) return;
   const url = normalizeUrl(input.value);
   if (!url) {
     show("Masukkan tautan media terlebih dahulu.", "error");
@@ -239,14 +262,16 @@ form.addEventListener("submit", async event => {
   message.className = "message";
   bump("total");
   start();
+  extractController = new AbortController();
+  const requestTimeout = setTimeout(() => extractController.abort(), 60_000);
   try {
     const response = await fetch("/api/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, mode })
+      body: JSON.stringify({ url, mode }),
+      signal: extractController.signal
     });
-    const body = await response.json();
-    if (!response.ok) throw new Error(body.error || "Ekstraksi gagal.");
+    const body = await readApiResponse(response);
     data = body;
     index = 0;
     render();
@@ -255,8 +280,10 @@ form.addEventListener("submit", async event => {
     results.scrollIntoView({ behavior: "smooth" });
   } catch (error) {
     bump("failed");
-    show(error.message || "Ekstraksi gagal.", "error");
+    show(error.name === "AbortError" ? "Permintaan terlalu lama. Coba lagi." : error.message || "Ekstraksi gagal.", "error");
   } finally {
+    clearTimeout(requestTimeout);
+    extractController = null;
     stop();
   }
 });

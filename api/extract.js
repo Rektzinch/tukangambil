@@ -246,7 +246,7 @@ async function raceProviders(attempts, mode, { graceMs = 8000 } = {}) {
         failures.push({ provider: attempt.name, ...sanitizeProviderError(error) });
         pending -= 1;
         if (pending === 0) {
-          if (best) return finish(best);
+          if (best) return finish({ ...best, failures: [...failures], results: [...results] });
           fail(Object.assign(new Error("Semua mesin gagal memproses tautan tersebut."), { code: "ALL_PROVIDERS_FAILED", details: failures }));
         }
       });

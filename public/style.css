@@ -178,7 +178,7 @@ h1 em:hover {
 
 .modes {
   display: grid;
-  grid-template-columns: 1fr; /* Mobile default */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-top: 10px;
 }
@@ -614,7 +614,7 @@ footer {
   }
 
   .modes {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     background: var(--line);
     gap: 1px;
     border-radius: 6px;
@@ -722,6 +722,10 @@ footer {
 
 /* Wide desktop (>= 1200px) */
 @media (min-width: 1200px) {
+  .modes {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .grid {
     grid-template-columns: repeat(4, 1fr);
   }

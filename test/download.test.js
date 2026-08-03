@@ -99,3 +99,9 @@ test("fetchAllowed - rejects invalid final destination URL", async (t) => {
     /Tujuan akhir media tidak diizinkan/
   );
 });
+
+test("isDownloadable - rejects non-media content types despite media filename", () => {
+  const { isDownloadable } = require("../api/download");
+  assert.equal(isDownloadable("preview.jpg", "text/html; charset=utf-8"), false);
+  assert.equal(isDownloadable("preview.mp4", "application/octet-stream"), true);
+});

@@ -14,7 +14,14 @@ function configuredHosts() {
 function allowedMediaUrl(value) { try { const u=new URL(value); return u.protocol === "https:" && hostnameMatches(u.hostname.toLowerCase(), [...MEDIA_HOSTS,...configuredHosts()]); } catch { return false; } }
 function mediaRequestHeaders(url, range, preview){ const host=new URL(url).hostname.toLowerCase(); const h={Accept:"*/*","Accept-Encoding":"identity","User-Agent":"Mozilla/5.0 Chrome/127"}; if(preview&&range)h.Range=range; if(host.includes("tiktok"))h.Referer="https://www.tiktok.com/"; else if(host.includes("instagram"))h.Referer="https://www.instagram.com/"; else if(host.includes("fbcdn"))h.Referer="https://www.facebook.com/"; else if(host.includes("twimg"))h.Referer="https://x.com/"; return h; }
 async function fetchAllowed(url, headers){ let current=url; for(let i=0;i<=MAX_REDIRECTS;i+=1){ if(!allowedMediaUrl(current))throw new Error("Host media tidak diizinkan."); const response=await fetch(current,{headers,redirect:"manual",signal:AbortSignal.timeout(40_000)}); if([301,302,303,307,308].includes(response.status)){const location=response.headers.get("location"); if(!location)throw new Error("Redirect media tidak valid."); current=new URL(location,current).toString(); continue} if(!allowedMediaUrl(response.url||current))throw new Error("Tujuan akhir media tidak diizinkan."); return response } throw new Error("Terlalu banyak redirect media."); }
-function isDownloadable(filename,type){const clean=String(type||"").split(";",1)[0].toLowerCase(); return /^(?:image|video|audio)\//.test(clean)||mimeFromFilename(filename,clean)!=="application/octet-stream";}
+function isDownloadable(filename,type){
+  const clean=String(type||"").split(";",1)[0].trim().toLowerCase();
+  // CDNs commonly use octet-stream for media, so use the safe filename only
+  // for that generic type. Never let an HTML/error response through merely
+  // because the requested filename has a media extension.
+  if(clean && clean !== "application/octet-stream") return /^(?:image|video|audio)\//.test(clean);
+  return mimeFromFilename(filename)!=="application/octet-stream";
+}
 function sameOrigin(req){const referer=String(req.headers?.referer||""); if(!referer)return false; try{return new URL(referer).host===String(req.headers?.host||"")}catch{return false}}
 
 module.exports=async function handler(req,res){

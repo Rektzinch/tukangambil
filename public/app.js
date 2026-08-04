@@ -7,7 +7,10 @@ const results = document.querySelector("#results");
 const submit = form.querySelector(".submit");
 const scan = document.querySelector("#scan");
 const scanLabel = document.querySelector("#scanLabel");
+const scanSubLabel = document.querySelector("#scanSubLabel");
 const scanTime = document.querySelector("#scanTime");
+const scanProgress = document.querySelector("#scanProgress");
+const scanProgressTrack = document.querySelector("#scanProgressTrack");
 const pasteBtn = document.querySelector("#pasteBtn");
 const submitText = submit.querySelector("span");
 const formHint = document.querySelector("#formHint");
@@ -17,7 +20,6 @@ let mode = "auto";
 let data = null;
 let index = 0;
 let timer = null;
-let timeoutWarning = null;
 let modalReturnFocus = null;
 let extractController = null;
 
@@ -33,9 +35,10 @@ function escapeHtml(value) {
 function loadStats() {
   try {
     const stored = JSON.parse(localStorage.getItem(statsKey));
-    return { total: Number(stored?.total) || 0, success: Number(stored?.success) || 0, failed: Number(stored?.failed) || 0 };
+    const platforms = Object.fromEntries(["tiktok", "instagram", "facebook", "threads", "x"].map(platform => [platform, Number(stored?.platforms?.[platform]) || 0]));
+    return { total: Number(stored?.total) || 0, success: Number(stored?.success) || 0, failed: Number(stored?.failed) || 0, platforms };
   } catch {
-    return { total: 0, success: 0, failed: 0 };
+    return { total: 0, success: 0, failed: 0, platforms: { tiktok: 0, instagram: 0, facebook: 0, threads: 0, x: 0 } };
   }
 }
 
@@ -45,6 +48,10 @@ function renderStats() {
   document.querySelector("#statSuccess").textContent = stats.success;
   document.querySelector("#statFailed").textContent = stats.failed;
   document.querySelector("#statRate").textContent = `${done ? Math.round((stats.success / done) * 100) : 0}%`;
+  const labels = { tiktok: "TikTok", instagram: "Instagram", facebook: "Facebook", threads: "Threads", x: "X" };
+  const ranked = Object.entries(stats.platforms).sort((a, b) => b[1] - a[1] || labels[a[0]].localeCompare(labels[b[0]]));
+  const max = Math.max(1, ...ranked.map(([, count]) => count));
+  document.querySelector("#platformRank").innerHTML = ranked.map(([platform, count], rank) => `<div class="platform-row"><span class="platform-position">0${rank + 1}</span><b>${labels[platform]}</b><div class="platform-bar"><span style="width:${count ? Math.max(8, Math.round((count / max) * 100)) : 0}%"></span></div><strong>${count}</strong></div>`).join("");
 }
 
 function bump(key) {
@@ -54,6 +61,16 @@ function bump(key) {
   } catch {
     // Penyimpanan lokal diblokir (mis. private mode); statistik tetap dihitung di sesi ini.
   }
+  renderStats();
+}
+
+function bumpPlatform(platform) {
+  const key = String(platform || "").toLowerCase();
+  if (!(key in stats.platforms)) return;
+  stats.platforms[key] += 1;
+  try {
+    localStorage.setItem(statsKey, JSON.stringify(stats));
+  } catch {}
   renderStats();
 }
 
@@ -109,27 +126,48 @@ function start() {
   const began = Date.now();
   scan.hidden = false;
   scanTime.textContent = "00:00";
+  scanProgress.style.width = "12%";
   submit.disabled = true;
   submitText.textContent = "Sedang mengambil";
   form.setAttribute("aria-busy", "true");
-  scanLabel.textContent = `Memproses ${resourceKind(input.value)}`;
+  const kind = resourceKind(input.value);
+
+  function updateScan(seconds) {
+    scanTime.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+    const progress = Math.min(94, Math.round(12 + 82 * (1 - Math.exp(-seconds / 14))));
+    scanProgress.style.width = `${progress}%`;
+    scanProgressTrack.setAttribute("aria-valuenow", String(progress));
+    if (seconds >= 45) {
+      scanLabel.textContent = "Masih memproses media";
+      scanSubLabel.textContent = "Provider membutuhkan waktu lebih lama dari biasanya";
+    } else if (seconds >= 18) {
+      scanLabel.textContent = "Menyiapkan preview";
+      scanSubLabel.textContent = "Hasil akhir sedang dirapikan untuk ditampilkan";
+    } else if (seconds >= 8) {
+      scanLabel.textContent = "Memilih kualitas terbaik";
+      scanSubLabel.textContent = "Membandingkan format video, gambar, dan audio";
+    } else if (seconds >= 3) {
+      scanLabel.textContent = "Menghubungi provider";
+      scanSubLabel.textContent = `Mencari sumber ${kind} yang dapat diunduh`;
+    } else {
+      scanLabel.textContent = "Memvalidasi tautan";
+      scanSubLabel.textContent = `Memeriksa alamat dan jenis ${kind}`;
+    }
+  }
+
+  updateScan(0);
   timer = setInterval(() => {
     const seconds = Math.floor((Date.now() - began) / 1000);
-    scanTime.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-    if (seconds >= 45) scanLabel.textContent = "Proses mendekati batas waktu server…";
-    else if (seconds >= 18) scanLabel.textContent = "Menyiapkan preview media";
-    else if (seconds >= 8) scanLabel.textContent = "Memilih kualitas terbaik";
-    else if (seconds >= 3) scanLabel.textContent = "Menghubungi provider";
+    updateScan(seconds);
   }, 250);
-  timeoutWarning = setTimeout(() => {
-    scanLabel.textContent = "Proses mendekati batas waktu server…";
-  }, 45_000);
 }
 
 function stop() {
   clearInterval(timer);
-  clearTimeout(timeoutWarning);
+  timer = null;
   scan.hidden = true;
+  scanProgress.style.width = "0";
+  scanProgressTrack.setAttribute("aria-valuenow", "0");
   submit.disabled = false;
   submitText.textContent = "Ambil dan preview";
   form.removeAttribute("aria-busy");
@@ -318,6 +356,7 @@ form.addEventListener("submit", async event => {
     index = 0;
     render();
     bump("success");
+    bumpPlatform(body.platform);
     show(`${body.items.length} media berhasil diekstrak.`, "success");
     results.scrollIntoView({ behavior: "smooth" });
   } catch (error) {

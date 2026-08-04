@@ -35,20 +35,31 @@
       <div class="url-row"><div class="input-shell"><span class="input-icon">↗</span><input id="mediaUrl" type="url" inputmode="url" placeholder="instagram.com/reel/..." required><span class="input-check" aria-hidden="true">✓</span></div><button id="pasteBtn" type="button">Tempel <kbd>⌘ V</kbd></button></div>
       <div class="modes" role="group" aria-label="Mode unduhan"><button type="button" class="mode active" data-mode="auto" aria-pressed="true"><span class="mode-icon">◉</span><span><b>Video + audio</b><small>Paling lengkap</small></span><i>↗</i></button><button type="button" class="mode" data-mode="image" aria-pressed="false"><span class="mode-icon">▧</span><span><b>Gambar</b><small>JPG / PNG</small></span><i>↗</i></button><button type="button" class="mode" data-mode="audio" aria-pressed="false"><span class="mode-icon">♫</span><span><b>Audio saja</b><small>MP3 / M4A</small></span><i>↗</i></button><button type="button" class="mode" data-mode="mute" aria-pressed="false"><span class="mode-icon">◌</span><span><b>Tanpa audio</b><small>Video only</small></span><i>↗</i></button></div>
       <button class="submit" type="submit"><span>Ambil dan preview</span><i>↗</i></button>
-      <div id="scan" class="scan" hidden><span></span><b id="scanLabel">Memvalidasi tautan</b><small id="scanTime">00:00</small></div>
+      <div id="scan" class="scan" hidden role="status" aria-live="polite">
+        <div class="scan-visual" aria-hidden="true"><span class="scan-spinner"></span><span class="scan-orbit"></span></div>
+        <div class="scan-copy"><b id="scanLabel">Memvalidasi tautan</b><small id="scanSubLabel">Mesin sedang menyiapkan media terbaik</small></div>
+        <strong class="scan-time" id="scanTime">00:00</strong>
+        <div class="scan-progress" id="scanProgressTrack" role="progressbar" aria-label="Progres ekstraksi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="12"><span id="scanProgress"></span></div>
+      </div>
       <div id="message" class="message" role="status" aria-live="polite"></div>
       <p class="form-note" id="formHint"><span id="formHintIcon">✦</span><span id="formHintText">Hanya untuk konten publik. Kami tidak menyimpan URL kamu.</span></p>
     </form>
-    <aside class="side-note" id="how">
-      <div class="side-note-head"><span class="section-kicker">HOW IT WORKS</span><span class="panel-number">02</span></div>
-      <h2>Tiga langkah,<br><em>satu file siap.</em></h2>
-      <div class="steps"><div class="step"><span>01</span><div><b>Tempel tautan</b><p>Salin URL dari platform favoritmu.</p></div></div><div class="step"><span>02</span><div><b>Atur output</b><p>Pilih media yang kamu butuhkan.</p></div></div><div class="step"><span>03</span><div><b>Preview & simpan</b><p>Cek hasilnya sebelum mengunduh.</p></div></div></div>
-      <div class="platforms"><small>DIDUKUNG DI</small><div><span>◎ Instagram</span><span>♪ TikTok</span><span>f Facebook</span><span>𝕏 X</span></div></div>
-    </aside>
   </section>
 
   <section id="results" hidden></section>
   <section class="stats" id="stats" aria-label="Statistik penggunaan"><div><small>Permintaan ekstraksi</small><strong id="statTotal">0</strong><span class="stat-mark">↗</span></div><div><small>Ekstraksi berhasil</small><strong id="statSuccess">0</strong><span class="stat-mark">✦</span></div><div><small>Ekstraksi gagal</small><strong id="statFailed">0</strong><span class="stat-mark">×</span></div><div><small>Rasio ekstraksi</small><strong id="statRate">0%</strong><span class="stat-mark">%</span></div></section>
+
+  <section class="platform-stats" id="platformStats" aria-labelledby="platformStatsTitle">
+    <div class="platform-stats-head"><div><span class="section-kicker">LOCAL ACTIVITY</span><h2 id="platformStatsTitle">Platform yang sering digunakan.</h2></div><p>Statistik tersimpan hanya di browser ini.</p></div>
+    <div class="platform-rank" id="platformRank"></div>
+  </section>
+
+  <section class="side-note how-section" id="how" aria-labelledby="howTitle">
+    <div class="side-note-head"><span class="section-kicker">HOW IT WORKS</span><span class="panel-number">02</span></div>
+    <h2 id="howTitle">Tiga langkah,<br><em>satu file siap.</em></h2>
+    <div class="steps"><div class="step"><span>01</span><div><b>Tempel tautan</b><p>Salin URL dari platform favoritmu.</p></div></div><div class="step"><span>02</span><div><b>Atur output</b><p>Pilih media yang kamu butuhkan.</p></div></div><div class="step"><span>03</span><div><b>Preview & simpan</b><p>Cek hasilnya sebelum mengunduh.</p></div></div></div>
+    <div class="platforms"><small>DIDUKUNG DI</small><div><span>◎ Instagram</span><span>♪ TikTok</span><span>f Facebook</span><span>𝕏 X</span></div></div>
+  </section>
 </main>
 <footer><span>TukangAmbil</span> · Public media utility <i>—</i> URL tidak ditampilkan di log provider · 2026</footer>
 <script src="/app.js" defer></script>

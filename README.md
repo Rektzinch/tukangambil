@@ -10,8 +10,10 @@ Downloader media publik untuk TikTok, Instagram, Facebook, Threads, dan X. Versi
 - Pemilihan format progressive yang memiliki video dan audio, dengan prioritas **resolusi asli tertinggi** (hingga 4K/super HD sesuai ketersediaan source); MP4/H.264 tetap dipilih saat resolusi sama untuk kompatibilitas pemutar.
 - Race provider memakai **jendela kualitas** (±8 detik): hasil cepat tetap dipertimbangkan, tetapi bila provider lain membawa resolusi lebih tinggi dalam jendela itu, hasil tertinggi yang dipakai.
 - Untuk TikTok, hasil terbaik diverifikasi **dapat diunduh** server-side; bila stream resolusi tertinggi diblokir tanpa sesi (mis. host `*-webapp-prime` mengembalikan 403), layanan otomatis memakai kualitas publik terbaik yang bisa diunduh dan menambahkan peringatan.
+- TikTok memakai MusicalDown sebagai fallback scraping terisolasi. Parser mengikuti nama field form yang dinamis, hanya menerima tautan media dari `fastdl.muscdn.app`, memprioritaskan MP4 HD tanpa watermark, lalu tetap memverifikasi bahwa file dapat diunduh.
 - Batas ukuran unduhan default dinaikkan ke **1 GiB** agar video HD/4K tidak tertolak (atur lewat `MAX_DOWNLOAD_BYTES`).
 - Download langsung tanpa menampung seluruh file di memori browser.
+- Statistik platform populer disimpan lokal di browser pengguna dan tidak dikirim sebagai telemetri server.
 - Redirect media divalidasi per-hop, ukuran file dibatasi, dan permintaan dibatasi per IP.
 - URL pengguna disanitasi dari log provider.
 

@@ -281,7 +281,12 @@ function normalizeYtdlp(data, classified, limit, offset, order = "newest") {
 function playlistItemsForOrder(order, offset, limit) {
   const start = offset + 1;
   const end = offset + limit;
-  return order === "oldest" ? `-${start}:-${end}:-1` : `${start}:${end}`;
+  return `-${start}:-${end}:-1`;
+}
+
+function playlistPageOptions(order, offset, limit) {
+  if (order === "oldest") return { playlistItems: playlistItemsForOrder(order, offset, limit) };
+  return { playlistStart: offset + 1, playlistEnd: offset + limit };
 }
 
 async function requestYtdlp(classified, { limit, offset, order }) {
@@ -291,7 +296,7 @@ async function requestYtdlp(classified, { limit, offset, order }) {
   const base = {
     dumpSingleJson: true, skipDownload: true, noWarnings: true, ignoreNoFormatsError: true,
     socketTimeout: 12, retries: 2, extractorRetries: 2, geoBypass: true,
-    yesPlaylist: true, playlistItems: playlistItemsForOrder(order, offset, limit),
+    yesPlaylist: true, ...playlistPageOptions(order, offset, limit),
     ...(cookiePath ? { cookies: cookiePath } : {})
   };
   // For TikTok, prefer flat playlist (one profile-page request, then resolve
@@ -378,6 +383,7 @@ module.exports = async function handler(req, res) {
 module.exports.normalizeYtdlp = normalizeYtdlp;
 module.exports.publishedAtFromEntry = publishedAtFromEntry;
 module.exports.playlistItemsForOrder = playlistItemsForOrder;
+module.exports.playlistPageOptions = playlistPageOptions;
 module.exports.requestYtdlp = requestYtdlp;
 module.exports.runtimeExtractor = runtimeExtractor;
 module.exports.probeDownloadable = probeDownloadable;

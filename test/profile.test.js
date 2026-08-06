@@ -73,10 +73,11 @@ test("normalizeYtdlp preserves oldest-first pagination order", () => {
 });
 
 test("playlist item ranges cover the full profile without overlap", () => {
-  assert.equal(profile.playlistItemsForOrder("newest", 0, 24), "1:24");
-  assert.equal(profile.playlistItemsForOrder("newest", 24, 24), "25:48");
   assert.equal(profile.playlistItemsForOrder("oldest", 0, 24), "-1:-24:-1");
   assert.equal(profile.playlistItemsForOrder("oldest", 24, 24), "-25:-48:-1");
+  assert.deepEqual(profile.playlistPageOptions("newest", 0, 24), { playlistStart: 1, playlistEnd: 24 });
+  assert.deepEqual(profile.playlistPageOptions("newest", 24, 24), { playlistStart: 25, playlistEnd: 48 });
+  assert.deepEqual(profile.playlistPageOptions("oldest", 0, 24), { playlistItems: "-1:-24:-1" });
 });
 
 test("normalizeYtdlp sets hasMore when entries fill the limit", () => {

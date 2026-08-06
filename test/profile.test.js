@@ -73,16 +73,19 @@ test("normalizeYtdlp sets hasMore when entries fill the limit", () => {
   assert.equal(result.partial, true);
 });
 
-test("normalizeYtdlp skips entries without a usable video format", () => {
+test("normalizeYtdlp keeps entries without formats as placeholders for Wavy (TikTok)", () => {
   const data = {
     title: "demo",
     entries: [
-      { title: "bad", formats: [] },
-      { title: "good", formats: [{ url: "https://v.mp4", vcodec: "h264", acodec: "aac", ext: "mp4" }] }
+      { id: "111", title: "bad", formats: [] },
+      { id: "222", title: "good", formats: [{ url: "https://v.mp4", vcodec: "h264", acodec: "aac", ext: "mp4" }] }
     ]
   };
   const classified = { platform: "tiktok", kind: "profile", handle: "demo", url: "https://www.tiktok.com/@demo/" };
   const result = profile.normalizeYtdlp(data, classified, 10, 0);
-  assert.equal(result.items.length, 1);
-  assert.equal(result.items[0].filename.includes("good"), true);
+  assert.equal(result.items.length, 2);
+  assert.equal(result.items[0]._sourceUrl, "https://www.tiktok.com/@demo/video/111");
+  assert.equal(result.items[0].url, "");
+  assert.equal(result.items[1].filename.includes("good"), true);
+  assert.equal(result.items[1].url, "https://v.mp4");
 });

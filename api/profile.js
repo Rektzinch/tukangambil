@@ -78,10 +78,13 @@ async function applyWavyFallback(raw) {
     const { _sourceUrl, ...clean } = final;
     return clean;
   });
-  const replaced = items.some((item, index) => Boolean(resolved[index]?.url));
-  return replaced
-    ? { ...raw, provider: "yt-dlp+wavy", items, warnings: [...(raw.warnings || []), "Media diunduh via Wavy (resolusi asli tanpa sesi platform)."] }
-    : raw;
+  const resolvedCount = resolved.filter(r => r?.url).length;
+  return {
+    ...raw,
+    provider: resolvedCount ? "yt-dlp+wavy" : raw.provider,
+    items,
+    warnings: [...(raw.warnings || []), resolvedCount ? `Semua unduhan diambil via Wavy (${resolvedCount}/${raw.items.length}).` : "Wavy tidak tersedia; memakai tautan langsung yt-dlp."]
+  };
 }
 
 function normalizeYtdlp(data, classified, limit, offset) {
@@ -92,21 +95,23 @@ function normalizeYtdlp(data, classified, limit, offset) {
     const selected = formats
       .filter(f => f?.url && f?.vcodec && f?.vcodec !== "none" && f?.acodec && f?.acodec !== "none")
       .sort((a, b) => ((Number(b.height) || 0) * 1_000_000 + (Number(b.width) || 0)) - ((Number(a.height) || 0) * 1_000_000 + (Number(a.width) || 0)))[0] || null;
-    if (!selected?.url) continue;
-    const ext = selected.ext || extensionFromUrl(selected.url, "mp4");
+    const ext = selected?.ext || (selected?.url ? extensionFromUrl(selected.url, "mp4") : "mp4");
     const item = {
       type: "video",
-      url: selected.url,
+      url: selected?.url || "",
       thumb: entry.thumbnail || data.thumbnail || null,
       filename: `${safeName(entry.title || data.title || `${classified.handle}-${index + 1}`)}.${ext}`,
       mime: mimeFromFilename(`media.${ext}`),
-      quality: selected.width && selected.height ? `${selected.width}×${selected.height}` : selected.height ? `${selected.height}p` : "Kualitas tertinggi",
-      hasAudio: selected.acodec !== "none",
-      codec: selected.vcodec || undefined,
-      height: Number(selected.height) || undefined,
-      width: Number(selected.width) || undefined
+      quality: selected?.width && selected?.height ? `${selected.width}×${selected.height}` : selected?.height ? `${selected.height}p` : "Kualitas tertinggi",
+      hasAudio: selected ? selected.acodec !== "none" : true,
+      codec: selected?.vcodec || undefined,
+      height: Number(selected?.height) || undefined,
+      width: Number(selected?.width) || undefined
     };
-    if (classified.platform === "tiktok" && entry.webpage_url) item._sourceUrl = entry.webpage_url;
+    if (classified.platform === "tiktok") {
+      const sourceUrl = entry.webpage_url || (entry.id ? `https://www.tiktok.com/@${encodeURIComponent(classified.handle)}/video/${entry.id}` : "");
+      if (sourceUrl) item._sourceUrl = sourceUrl;
+    }
     items.push(item);
   }
   const hasMore = classified.kind === "profile" && entries.length >= limit;
@@ -128,10 +133,12 @@ function normalizeYtdlp(data, classified, limit, offset) {
 async function requestYtdlp(classified, { limit, offset }) {
   const cookiePath = process.env.YTDLP_COOKIES_B64 ? "/tmp/tukangambil-cookies.txt" : null;
   if (cookiePath && !fs.existsSync(cookiePath)) fs.writeFileSync(cookiePath, Buffer.from(process.env.YTDLP_COOKIES_B64, "base64"), { mode: 0o600 });
+  const isTiktok = classified.platform === "tiktok";
   const options = {
     dumpSingleJson: true, skipDownload: true, noWarnings: true, ignoreNoFormatsError: true,
     socketTimeout: 12, retries: 1, extractorRetries: 1, geoBypass: true,
     yesPlaylist: true, playlistStart: offset + 1, playlistEnd: offset + limit,
+    ...(isTiktok ? { flatPlaylist: true } : {}),
     ...(cookiePath ? { cookies: cookiePath } : {})
   };
   const data = await runtimeExtractor()(classified.url, options, { timeout: GLOBAL_DEADLINE_MS - 3000 });

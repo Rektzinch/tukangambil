@@ -8,6 +8,7 @@ const {
 } = require("../lib/core");
 const { createRateLimiter } = require("../lib/rate-limit");
 const wavy = require("../lib/wavy");
+const { requestTikwm, requestMusicalDown } = require("./extract");
 
 const rateLimit = createRateLimiter({ max: 20 });
 const DEFAULT_LIMIT = 24;
@@ -70,6 +71,24 @@ function buildCandidateUrls(item) {
   return candidates;
 }
 
+function toMediaItem(replacement, item) {
+  if (!replacement?.url) return null;
+  const ext = extensionFromUrl(replacement.url, "mp4") || "mp4";
+  return {
+    id: item.id || replacement.id,
+    type: replacement.type || "video",
+    url: replacement.url,
+    thumb: item.thumb || replacement.thumb || null,
+    filename: item.filename || `${safeName(replacement.title || item.title || `media-${item.id || "video"}`)}.${ext}`,
+    mime: replacement.mime || mimeFromFilename(`media.${ext}`),
+    quality: replacement.quality || "Kualitas tertinggi",
+    hasAudio: replacement.type === "video" ? replacement.hasAudio !== false : undefined,
+    codec: replacement.codec || undefined,
+    height: Number(replacement.height) || undefined,
+    width: Number(replacement.width) || undefined
+  };
+}
+
 async function resolveWavyItem(item) {
   const source = item._sourceUrl;
   if (!source) return null;
@@ -78,12 +97,44 @@ async function resolveWavyItem(item) {
     try {
       const result = await wavy.requestWavy({ platform: "tiktok", kind: "post", url: source }, "auto");
       const replacement = result.items.find(candidate => candidate?.url);
-      if (!replacement?.url) return null;
-      return { ...replacement, id: item.id || replacement.id, thumb: item.thumb || replacement.thumb, filename: item.filename };
+      return toMediaItem(replacement, item);
     } catch (error) {
       lastError = error;
       if (attempt === 0) await sleep(1200);
     }
+  }
+  return null;
+}
+
+async function resolveTikwmItem(item) {
+  const source = item._sourceUrl;
+  if (!source) return null;
+  try {
+    const classified = { platform: "tiktok", kind: "post", url: source };
+    const result = await requestTikwm(classified, "auto");
+    return toMediaItem(result.items[0], item);
+  } catch {
+    return null;
+  }
+}
+
+async function resolveMusicalDownItem(item) {
+  const source = item._sourceUrl;
+  if (!source) return null;
+  try {
+    const classified = { platform: "tiktok", kind: "post", url: source };
+    const result = await requestMusicalDown(classified, "auto");
+    return toMediaItem(result.items[0], item);
+  } catch {
+    return null;
+  }
+}
+
+async function resolveItem(item) {
+  const resolvers = [resolveWavyItem, resolveTikwmItem, resolveMusicalDownItem];
+  for (const resolver of resolvers) {
+    const replacement = await resolver(item);
+    if (replacement?.url) return replacement;
   }
   return null;
 }
@@ -219,7 +270,7 @@ module.exports = async function handler(req, res) {
     const raw = await requestYtdlp(classified, { limit, offset });
     let resolved = raw;
     if (raw.platform === "tiktok" && raw.items?.length) {
-      const replacements = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, resolveWavyItem);
+      const replacements = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, resolveItem);
       resolved = {
         ...raw,
         items: raw.items.map((item, index) => replacements[index] && replacements[index].url ? replacements[index] : item)
@@ -243,5 +294,8 @@ module.exports.requestYtdlp = requestYtdlp;
 module.exports.runtimeExtractor = runtimeExtractor;
 module.exports.probeDownloadable = probeDownloadable;
 module.exports.resolveWavyItem = resolveWavyItem;
+module.exports.resolveTikwmItem = resolveTikwmItem;
+module.exports.resolveMusicalDownItem = resolveMusicalDownItem;
+module.exports.resolveItem = resolveItem;
 module.exports.mapWithConcurrency = mapWithConcurrency;
 module.exports.finalizeProfileResult = finalizeProfileResult;

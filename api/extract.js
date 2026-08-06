@@ -463,3 +463,4 @@ module.exports.verifyTiktokResult = verifyTiktokResult;
 module.exports.parseMusicalDownForm = parseMusicalDownForm;
 module.exports.parseMusicalDownResult = parseMusicalDownResult;
 module.exports.requestMusicalDown = requestMusicalDown;
+module.exports.requestTikwm = requestTikwm;

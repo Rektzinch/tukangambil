@@ -73,7 +73,7 @@ test("normalizeYtdlp sets hasMore when entries fill the limit", () => {
   assert.equal(result.partial, true);
 });
 
-test("normalizeYtdlp keeps entries without formats as placeholders for Wavy (TikTok)", () => {
+test("normalizeYtdlp keeps entries without formats as placeholders", () => {
   const data = {
     title: "demo",
     entries: [
@@ -88,4 +88,27 @@ test("normalizeYtdlp keeps entries without formats as placeholders for Wavy (Tik
   assert.equal(result.items[0].url, "");
   assert.equal(result.items[1].filename.includes("good"), true);
   assert.equal(result.items[1].url, "https://v.mp4");
+});
+
+test("finalizeProfileResult keeps all items and marks unavailable ones", () => {
+  const raw = {
+    platform: "tiktok",
+    resourceKind: "profile",
+    title: "demo",
+    author: "demo_user",
+    partial: true,
+    pagination: { offset: 0, limit: 10, hasMore: true },
+    items: [
+      { id: "111", type: "video", url: "https://v1.mp4", thumb: null, filename: "v1.mp4", mime: "video/mp4", hasAudio: true },
+      { id: "222", type: "video", url: "", thumb: null, filename: "v2.mp4", mime: "video/mp4", hasAudio: true, _sourceUrl: "https://www.tiktok.com/@demo/video/222" }
+    ]
+  };
+  const result = profile.finalizeProfileResult(raw, { offset: 0, limit: 10 });
+  assert.equal(result.items.length, 2);
+  assert.equal(result.items[0].available, true);
+  assert.equal(result.items[1].available, false);
+  assert.equal(result.items[1].fallbackUrl, "https://www.tiktok.com/@demo/video/222");
+  assert.equal(result.provider, "profile");
+  assert.equal(result.collection, true);
+  assert.equal(result.pagination.hasMore, true);
 });

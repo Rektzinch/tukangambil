@@ -322,11 +322,16 @@ function render() {
   if (isCollection) {
     const collectionWarnings = data.warnings?.length ? `<div class="message show">${data.warnings.map(escapeHtml).join(" · ")}</div>` : "";
     const loadMore = profileHasMore ? `<button class="load-more" type="button">Muat lebih banyak</button>` : "";
-    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div><div class="grid">${data.items.map((item, i) => `<article class="tile"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span></div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions"><button class="preview-btn" data-preview="${i}" type="button">Preview</button><a class="download" data-dl="${i}" href="${escapeHtml(mediaUrl(item))}">Download</a></div></article>`).join("")}</div>${loadMore}</section>`;
+    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div><div class="grid">${data.items.map((item, i) => `<article class="tile${item.available === false ? " unavailable" : ""}"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span>${item.available === false ? '<span class="badge badge-muted">Tidak tersedia</span>' : ""}</div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions">${item.available === false ? '<span class="tile-note">Media tidak dapat diunduh</span>' : `<button class="preview-btn" data-preview="${i}" type="button">Preview</button><a class="download" data-dl="${i}" href="${escapeHtml(mediaUrl(item))}">Download</a>`}</div></article>`).join("")}</div>${loadMore}</section>`;
     results.querySelectorAll("[data-preview]").forEach(button => button.addEventListener("click", () => openModal(Number(button.dataset.preview), button)));
     results.querySelector(".download-all").addEventListener("click", async () => {
+      const available = data.items.filter(item => item.available !== false);
+      if (!available.length) {
+        show("Tidak ada media yang dapat diunduh.", "error");
+        return;
+      }
       show("Browser akan memulai unduhan satu per satu. Izinkan multiple downloads bila diminta.");
-      for (const item of data.items) {
+      for (const item of available) {
         const anchor = document.createElement("a");
         anchor.href = mediaUrl(item);
         anchor.download = item.filename;

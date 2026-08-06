@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   classifyUrl, collectTags, safeName, extensionFromUrl, mimeFromFilename,
-  validateResult, applyDownloadFilenames, attachDownloadTokens
+  applyDownloadFilenames, attachDownloadTokens
 } = require("../lib/core");
 const { createRateLimiter } = require("../lib/rate-limit");
 const wavy = require("../lib/wavy");
@@ -71,40 +71,47 @@ function buildCandidateUrls(item) {
 }
 
 async function resolveWavyItem(item) {
-  try {
-    const source = item._sourceUrl;
-    if (!source) return null;
-    const result = await wavy.requestWavy({ platform: "tiktok", kind: "post", url: source }, "auto");
-    const replacement = result.items.find(candidate => candidate?.url);
-    if (!replacement?.url) return null;
-    return { ...replacement, id: item.id || replacement.id, thumb: item.thumb || replacement.thumb, filename: item.filename };
-  } catch {
-    return null;
+  const source = item._sourceUrl;
+  if (!source) return null;
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const result = await wavy.requestWavy({ platform: "tiktok", kind: "post", url: source }, "auto");
+      const replacement = result.items.find(candidate => candidate?.url);
+      if (!replacement?.url) return null;
+      return { ...replacement, id: item.id || replacement.id, thumb: item.thumb || replacement.thumb, filename: item.filename };
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) await sleep(1200);
+    }
   }
+  return null;
 }
 
-async function applyWavyFallback(raw) {
-  if (raw.platform !== "tiktok" || !raw.items?.length) return raw;
-  const resolved = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, resolveWavyItem);
-  let wavyCount = 0;
-  const items = raw.items.map((item, index) => {
-    const replacement = resolved[index];
-    let final;
-    if (replacement?.url) {
-      wavyCount += 1;
-      final = replacement;
-    } else {
-      final = item;
+function finalizeProfileResult(raw, { offset, limit }) {
+  const items = raw.items.map(item => {
+    const { _sourceUrl, _formats, ...clean } = item;
+    const available = Boolean(clean.url && /^https:/i.test(clean.url));
+    if (!available && _sourceUrl) {
+      clean.fallbackUrl = _sourceUrl;
     }
-    const { _sourceUrl, _formats, ...clean } = final;
-    if (!clean.url) clean.url = item.url;
-    return clean;
+    return { ...clean, available };
   });
+  const availableCount = items.filter(item => item.available).length;
   return {
-    ...raw,
-    provider: wavyCount ? "yt-dlp+wavy" : raw.provider,
-    items,
-    warnings: [...(raw.warnings || []), wavyCount ? `Unduhan diambil via Wavy (${wavyCount}/${raw.items.length}).` : ""]
+    platform: raw.platform,
+    provider: "profile",
+    resourceKind: raw.resourceKind || "profile",
+    type: "collection",
+    collection: true,
+    partial: raw.partial,
+    title: raw.title,
+    description: raw.description || "",
+    tags: raw.tags || [],
+    author: raw.author,
+    warnings: [...(raw.warnings || []), `${items.length} media ditemukan.`],
+    pagination: raw.pagination || { offset, limit, hasMore: false },
+    items
   };
 }
 
@@ -210,11 +217,18 @@ module.exports = async function handler(req, res) {
   if (!["tiktok", "instagram", "facebook", "threads", "x"].includes(classified.platform)) return res.status(400).json({ error: "Profil platform ini belum didukung.", code: "UNSUPPORTED_PLATFORM" });
   try {
     const raw = await requestYtdlp(classified, { limit, offset });
-    const rawResult = await applyWavyFallback(raw);
-    const result = validateResult(rawResult, { mode: "auto" });
-    result.pagination = rawResult.pagination || { offset, limit, hasMore: false };
+    let resolved = raw;
+    if (raw.platform === "tiktok" && raw.items?.length) {
+      const replacements = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, resolveWavyItem);
+      resolved = {
+        ...raw,
+        items: raw.items.map((item, index) => replacements[index] && replacements[index].url ? replacements[index] : item)
+      };
+    }
+    const result = finalizeProfileResult(resolved, { offset, limit });
     applyDownloadFilenames(result);
     attachDownloadTokens(result);
+    result.items = result.items.map(item => item.available ? item : { ...item, downloadToken: undefined, fallbackUrl: item.fallbackUrl || undefined });
     result.downloadSecurity = process.env.DOWNLOAD_TOKEN_SECRET ? "signed" : "same-origin";
     return res.status(200).json(result);
   } catch (error) {
@@ -228,6 +242,6 @@ module.exports.normalizeYtdlp = normalizeYtdlp;
 module.exports.requestYtdlp = requestYtdlp;
 module.exports.runtimeExtractor = runtimeExtractor;
 module.exports.probeDownloadable = probeDownloadable;
-module.exports.applyWavyFallback = applyWavyFallback;
 module.exports.resolveWavyItem = resolveWavyItem;
 module.exports.mapWithConcurrency = mapWithConcurrency;
+module.exports.finalizeProfileResult = finalizeProfileResult;

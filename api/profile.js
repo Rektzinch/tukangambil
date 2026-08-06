@@ -156,25 +156,36 @@ function normalizeYtdlp(data, classified, limit, offset) {
 async function requestYtdlp(classified, { limit, offset }) {
   const cookiePath = process.env.YTDLP_COOKIES_B64 ? "/tmp/tukangambil-cookies.txt" : null;
   if (cookiePath && !fs.existsSync(cookiePath)) fs.writeFileSync(cookiePath, Buffer.from(process.env.YTDLP_COOKIES_B64, "base64"), { mode: 0o600 });
-  const options = {
+  const isTiktok = classified.platform === "tiktok";
+  const base = {
     dumpSingleJson: true, skipDownload: true, noWarnings: true, ignoreNoFormatsError: true,
     socketTimeout: 12, retries: 2, extractorRetries: 2, geoBypass: true,
     yesPlaylist: true, playlistStart: offset + 1, playlistEnd: offset + limit,
     ...(cookiePath ? { cookies: cookiePath } : {})
   };
+  // For TikTok, prefer flat playlist (one profile-page request, then resolve
+  // each URL via Wavy). This avoids per-video webpage fetches that trigger
+  // TikTok anti-bot on server IPs. Fall back to full extraction if needed.
+  const modes = isTiktok
+    ? [{ label: "flat", options: { ...base, flatPlaylist: true } }, { label: "full", options: base }]
+    : [{ label: "full", options: base }];
   let lastError = null;
-  for (let attempt = 0; attempt < MAX_YTDLP_ATTEMPTS; attempt += 1) {
-    try {
-      const data = await runtimeExtractor()(classified.url, options, { timeout: GLOBAL_DEADLINE_MS - 3000 });
-      return normalizeYtdlp(data, classified, limit, offset);
-    } catch (error) {
-      lastError = error;
-      const message = String(error?.message || "");
-      if (attempt + 1 < MAX_YTDLP_ATTEMPTS && /secondary user ID|Unexpected response|HTTP Error 4\d\d|Requested format|unable to extract/i.test(message)) {
-        await sleep(1500 * (attempt + 1));
-        continue;
+  for (const mode of modes) {
+    for (let attempt = 0; attempt < MAX_YTDLP_ATTEMPTS; attempt += 1) {
+      try {
+        const data = await runtimeExtractor()(classified.url, mode.options, { timeout: GLOBAL_DEADLINE_MS - 3000 });
+        return normalizeYtdlp(data, classified, limit, offset);
+      } catch (error) {
+        lastError = error;
+        const message = String(error?.message || "");
+        const retriable = /secondary user ID|Unexpected response|HTTP Error 4\d\d|unable to extract|timed out|Requested format/i.test(message);
+        if (retriable && attempt + 1 < MAX_YTDLP_ATTEMPTS) {
+          await sleep(1500 * (attempt + 1));
+          continue;
+        }
+        if (retriable) break;
+        throw error;
       }
-      break;
     }
   }
   throw lastError || new Error("Gagal membaca daftar media profil.");

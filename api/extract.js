@@ -10,6 +10,7 @@ const {
 const { createRateLimiter } = require("../lib/rate-limit");
 const fastdl = require("../lib/instagram-fastdl");
 const igDirect = require("../lib/instagram-direct");
+const wavy = require("../lib/wavy");
 
 const TIKWM_URL = "https://www.tikwm.com/api/";
 const MUSICALDOWN_URL = "https://musicaldown.com/id";
@@ -402,6 +403,7 @@ function buildAttempts(classified, mode) {
   }
   if (classified.platform === "threads") attempts.push({ name: "threadsdl", run: () => requestThreads(classified, mode) });
   attempts.push({ name: "yt-dlp", run: () => requestYtdlp(classified, mode) });
+  if (["instagram", "facebook"].includes(classified.platform)) attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
   for (const endpoint of providerEndpoints()) attempts.push({ name: `cobalt:${new URL(endpoint).hostname}`, run: () => requestCobalt(classified, mode, endpoint) });
   return attempts;
 }

@@ -392,6 +392,16 @@ async function raceProviders(attempts, mode, { graceMs = 8000 } = {}) {
 
 function buildAttempts(classified, mode) {
   const attempts = [];
+  const wavyOnly = ["instagram", "facebook"].includes(classified.platform);
+  if (wavyOnly) {
+    if (classified.kind === "profile" && classified.platform === "instagram") {
+      attempts.push({ name: "instagram-direct", run: () => igDirect.requestProfile(classified.handle) });
+      attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
+    } else {
+      attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
+    }
+    return attempts;
+  }
   if (classified.kind === "profile" && classified.platform === "instagram") {
     attempts.push({ name: "instagram-profile", run: () => requestInstagramProfile(classified) });
     attempts.push({ name: "instagram-direct", run: () => igDirect.requestProfile(classified.handle) });
@@ -403,7 +413,6 @@ function buildAttempts(classified, mode) {
   }
   if (classified.platform === "threads") attempts.push({ name: "threadsdl", run: () => requestThreads(classified, mode) });
   attempts.push({ name: "yt-dlp", run: () => requestYtdlp(classified, mode) });
-  if (["instagram", "facebook"].includes(classified.platform)) attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
   for (const endpoint of providerEndpoints()) attempts.push({ name: `cobalt:${new URL(endpoint).hostname}`, run: () => requestCobalt(classified, mode, endpoint) });
   return attempts;
 }

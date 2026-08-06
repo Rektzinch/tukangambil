@@ -178,6 +178,9 @@ function finalizeProfileResult(raw, { offset, limit }) {
   const items = raw.items.map(item => {
     const { _sourceUrl, _formats, ...clean } = item;
     const available = Boolean(clean.url && /^https:/i.test(clean.url));
+    if (_sourceUrl) {
+      clean.sourceUrl = _sourceUrl;
+    }
     if (!available && _sourceUrl) {
       clean.fallbackUrl = _sourceUrl;
     }
@@ -311,7 +314,11 @@ module.exports = async function handler(req, res) {
       const replacements = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, resolveItem);
       resolved = {
         ...raw,
-        items: raw.items.map((item, index) => replacements[index] && replacements[index].url ? replacements[index] : item)
+        items: raw.items.map((item, index) => {
+          const replacement = replacements[index];
+          if (!replacement || !replacement.url) return item;
+          return { ...replacement, _sourceUrl: item._sourceUrl || replacement._sourceUrl };
+        })
       };
     }
     const result = finalizeProfileResult(resolved, { offset, limit });

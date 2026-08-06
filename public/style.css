@@ -197,11 +197,14 @@ button:active,.download:active,.preview-btn:active,.nav button:active { transfor
 .tile:hover .tile-media img { transform:scale(1.05); }
 .tile h3 { margin:8px 0; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tile-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-.preview-btn,.tile .download { min-height:36px; width:100%; font-size:10px; }
+.preview-btn,.tile .download,.hd-btn { min-height:36px; width:100%; font-size:10px; }
 .preview-btn { border:1px solid var(--border); color:var(--text-2); background:var(--bg); }
 .tile .download { margin:0; color:var(--bg); }
 .tile .download.hd { background:var(--accent-dark); color:var(--accent); border:1px solid var(--accent); font-weight:600; }
 .tile .download.hd:hover { background:var(--accent); color:var(--bg); }
+.hd-btn { border:1px solid var(--accent); background:var(--accent-dark); color:var(--accent); font-weight:600; }
+.hd-btn:hover { background:var(--accent); color:var(--bg); }
+.hd-loading { display:flex; align-items:center; justify-content:center; gap:10px; padding:60px 20px; color:var(--muted); font:12px var(--mono); }
 .tile-note { grid-column:1/-1; text-align:center; padding:8px; font:9px var(--mono); color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
 
 /* Sticky download-all for collections on mobile */
@@ -312,7 +315,7 @@ footer i { color:var(--accent); font-style:normal; margin:0 7px; }
   .tile-media { aspect-ratio:3/4; border-radius:8px; }
   .tile h3 { font-size:10px; margin:6px 0; }
   .tile-actions { gap:4px; }
-  .preview-btn,.tile .download { min-height:32px; font-size:9px; }
+  .preview-btn,.tile .download,.hd-btn { min-height:32px; font-size:9px; }
   .card { display:block; }
   .card>.preview { border-right:0; }
   .preview { height:min(56vw,360px); min-height:0; padding:12px; }

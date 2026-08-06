@@ -310,34 +310,67 @@ function closeModal() {
   modalReturnFocus = null;
 }
 
+function getModal() {
+  let modal = document.querySelector(".modal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.className = "modal";
+  modal.innerHTML = '<div class="modal-box" role="dialog" aria-modal="true" aria-label="Preview media"><div class="modal-top"><b></b><button type="button" aria-label="Tutup">×</button></div><div class="modal-content"></div></div>';
+  document.body.appendChild(modal);
+  modal.addEventListener("click", event => {
+    if (event.target === modal) closeModal();
+  });
+  modal.querySelector("button").addEventListener("click", closeModal);
+  modal.addEventListener("keydown", event => {
+    if (event.key !== "Tab") return;
+    const focusables = [...modal.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex=\"-1\"])")]
+      .filter(element => !element.disabled);
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+  return modal;
+}
+
+async function openHdModal(i, button) {
+  modalReturnFocus = button;
+  const source = data.items?.[i];
+  if (!source?.sourceUrl) {
+    show("Tautan sumber versi HD tidak tersedia untuk media ini.", "error");
+    return;
+  }
+  const modal = getModal();
+  modal.querySelector(".modal-top b").textContent = "Versi HD";
+  modal.querySelector(".modal-content").innerHTML = '<div class="hd-loading"><span class="spinner" aria-hidden="true"></span> Mencari versi HD…</div>';
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+  try {
+    const response = await fetch("/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: source.sourceUrl, mode: "auto" })
+    });
+    const body = await readApiResponse(response);
+    const item = body.items?.[0];
+    if (!item) throw new Error("Versi HD tidak ditemukan.");
+    const meta = `<div class="badges"><span class="badge">${escapeHtml(body.platform || "media")}</span><span class="badge">${escapeHtml(item.type)}</span><span class="badge badge-quality${item.bestQuality ? " best" : ""}">${escapeHtml(item.quality || "HD")}</span>${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}</div>`;
+    modal.querySelector(".modal-content").innerHTML = `<div class="preview">${preview(item)}</div><div class="meta"><div class="badges">${meta}</div><h2>${escapeHtml(body.title || item.filename)}</h2><p>${escapeHtml(body.author || "")}</p><a class="download" data-dl="0" href="${escapeHtml(mediaUrl(item))}">Download versi HD</a></div>`;
+    bindDownloads(modal, [item]);
+  } catch (error) {
+    modal.querySelector(".modal-content").innerHTML = `<div class="message error show">${escapeHtml(error.message)}</div>`;
+  }
+}
+
 function openModal(i, button) {
   modalReturnFocus = button;
   const item = data.items[i];
-  let modal = document.querySelector(".modal");
-  if (!modal) {
-    modal = document.createElement("div");
-    modal.className = "modal";
-    modal.innerHTML = '<div class="modal-box" role="dialog" aria-modal="true" aria-label="Preview media"><div class="modal-top"><b></b><button type="button" aria-label="Tutup">×</button></div><div class="modal-content"></div></div>';
-    document.body.appendChild(modal);
-    modal.addEventListener("click", event => {
-      if (event.target === modal) closeModal();
-    });
-    modal.querySelector("button").addEventListener("click", closeModal);
-    modal.addEventListener("keydown", event => {
-      if (event.key !== "Tab") return;
-      const focusables = [...modal.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex=\"-1\"])")]
-        .filter(element => !element.disabled);
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    });
-  }
+  const modal = getModal();
   modal.querySelector(".modal-top b").textContent = `${i + 1} / ${data.items.length}`;
   modal.querySelector(".modal-content").innerHTML = `<div class="preview">${preview(item)}</div><div class="meta"><h2>${escapeHtml(item.filename)}</h2><a class="download" href="${escapeHtml(mediaUrl(item))}" data-dl="${i}">Download media ini</a></div>`;
   bindDownloads(modal, [...data.items]);
@@ -371,14 +404,15 @@ function render() {
     const collectionWarnings = data.warnings?.length ? `<div class="message show">${data.warnings.map(escapeHtml).join(" · ")}</div>` : "";
     const loadMore = profileHasMore ? `<button class="load-more" type="button">Muat lebih banyak</button>` : "";
     const profileCard = profile ? `<div class="profile-card"><div class="profile-avatar">${profile.avatar ? `<img src="${escapeHtml(avatarUrl(profile))}" alt="Avatar ${escapeHtml(profile.username)}">` : `<span>${escapeHtml((profile.username || "?")[0].toUpperCase())}</span>`}</div><div class="profile-main"><h2>${escapeHtml(profile.nickname || "")}</h2><p class="profile-handle">@${escapeHtml(profile.username || "")}</p>${profile.bio ? `<p class="profile-bio">${escapeHtml(profile.bio)}</p>` : ""}<div class="profile-stats"><span><b>${formatCount(profile.followers)}</b><small>Pengikut</small></span><span><b>${formatCount(profile.following)}</b><small>Mengikuti</small></span><span><b>${formatCount(profile.mediaCount)}</b><small>Media</small></span><span><b>${formatCount(profile.likes)}</b><small>Suka</small></span></div></div></div>` : "";
-    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div>${profileCard}<div class="grid">${data.items.map((item, i) => `<article class="tile${item.available === false ? " unavailable" : ""}"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span>${item.quality ? `<span class="badge badge-quality${item.bestQuality ? " best" : ""}">${escapeHtml(item.quality)}</span>` : ""}${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}${item.available === false ? '<span class="badge badge-muted">Tidak tersedia</span>' : ""}</div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions">${item.available === false ? '<span class="tile-note">Media tidak dapat diunduh</span>' : `<button class="preview-btn" data-preview="${i}" type="button">Preview</button><a class="download hd" data-dl="${i}" href="${escapeHtml(mediaUrl(item))}" title="Unduh versi HD">Versi HD</a>`}</div></article>`).join("")}</div>${loadMore}</section><div class="download-all-sticky"><button class="download-all" type="button">Download semua media</button></div>`;
+    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div>${profileCard}<div class="grid">${data.items.map((item, i) => `<article class="tile${item.available === false ? " unavailable" : ""}"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span>${item.quality ? `<span class="badge badge-quality${item.bestQuality ? " best" : ""}">${escapeHtml(item.quality)}</span>` : ""}${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}${item.available === false ? '<span class="badge badge-muted">Tidak tersedia</span>' : ""}</div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions">${item.available === false ? '<span class="tile-note">Media tidak dapat diunduh</span>' : `<button class="preview-btn" data-preview="${i}" type="button">Preview</button><button class="hd-btn" data-hd="${i}" type="button">Versi HD</button>`}</div></article>`).join("")}</div>${loadMore}</section><div class="download-all-sticky"><button class="download-all" type="button">Download semua media</button></div>`;
     results.querySelectorAll("[data-preview]").forEach(button => button.addEventListener("click", () => openModal(Number(button.dataset.preview), button)));
+    results.querySelectorAll("[data-hd]").forEach(button => button.addEventListener("click", () => openHdModal(Number(button.dataset.hd), button)));
     results.querySelectorAll(".download-all").forEach(button => button.addEventListener("click", () => downloadAll()));
     const loadMoreBtn = results.querySelector(".load-more");
     if (loadMoreBtn) loadMoreBtn.addEventListener("click", () => loadMoreProfile());
   } else {
     const item = data.items[index];
-    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.resourceKind || "media")} · ${escapeHtml(data.provider)}</span><b>${index + 1}/${data.items.length}</b></div><section class="card"><div class="preview">${preview(item)}</div><div class="meta"><div class="badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span><span class="badge${item.bestQuality ? " badge-quality best" : ""}">${escapeHtml(item.quality)}</span>${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}</div><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${data.warnings?.length ? `<p>${data.warnings.map(escapeHtml).join(" · ")}</p>` : ""}<a class="download" data-dl="${index}" href="${escapeHtml(mediaUrl(item))}">Download media ini</a>${data.items.length > 1 ? '<div class="nav"><button data-nav="prev">Sebelumnya</button><button data-nav="next">Berikutnya</button></div>' : ""}</div></section>`;
+    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.resourceKind || "media")} · media</span><b>${index + 1}/${data.items.length}</b></div><section class="card"><div class="preview">${preview(item)}</div><div class="meta"><div class="badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span><span class="badge${item.bestQuality ? " badge-quality best" : ""}">${escapeHtml(item.quality)}</span>${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}</div><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${data.warnings?.length ? `<p>${data.warnings.map(escapeHtml).join(" · ")}</p>` : ""}<a class="download" data-dl="${index}" href="${escapeHtml(mediaUrl(item))}">Download media ini</a>${data.items.length > 1 ? '<div class="nav"><button data-nav="prev">Sebelumnya</button><button data-nav="next">Berikutnya</button></div>' : ""}</div></section>`;
     results.querySelectorAll("[data-nav]").forEach(button => button.addEventListener("click", () => {
       index = button.dataset.nav === "next" ? (index + 1) % data.items.length : (index - 1 + data.items.length) % data.items.length;
       render();

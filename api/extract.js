@@ -18,7 +18,7 @@ const INSTAGRAM_PROFILE_URLS = [
 ];
 const PROVIDER_TIMEOUT_MS = 15000;
 const rateLimit = createRateLimiter({ max: 20 });
-const GLOBAL_DEADLINE_MS = 52000;
+const GLOBAL_DEADLINE_MS = 46000;
 const PROFILE_LIMIT = 24;
 let extractor;
 
@@ -238,7 +238,7 @@ async function requestThreads(classified, mode) {
   const items = [];
   for (const [index, media] of data.medias.entries()) {
     const video = Array.isArray(media.videos) ? media.videos.filter(v => v?.url).sort((a, b) => ((Number(b.width) || 0) * (Number(b.height) || 0)) - ((Number(a.width) || 0) * (Number(a.height) || 0)))[0] : null;
-    const image = Array.isArray(media.images) ? media.images.filter(v => v?.url).sort((a,b)=>(b.width||0)*(b.height||0)-(a.width||0)*(a.height||0))[0] : null;
+    const image = Array.isArray(media.images) ? media.images.filter(v => v?.url).sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0))[0] : null;
     if (video) items.push({ type: "video", url: video.url, thumb: media.cover || null, filename: `threads-${index + 1}.mp4`, quality: video.width && video.height ? `${video.width}×${video.height}` : media.height ? `${media.height}p` : "HD", hasAudio: true, width: video.width || media.width || undefined, height: video.height || media.height || undefined });
     else if (image) items.push({ type: "image", url: image.url, thumb: image.url, filename: `threads-${index + 1}.jpg`, quality: image.width && image.height ? `${image.width}×${image.height}` : "Original", width: image.width || undefined, height: image.height || undefined });
   }
@@ -310,16 +310,23 @@ async function probeDownloadable(url) {
   }
 }
 
+async function probeDownloadableItems(result) {
+  const items = result?.items || [];
+  if (!items.length) return false;
+  for (const item of items) {
+    if (!(await probeDownloadable(item.url))) return false;
+  }
+  return true;
+}
+
 async function verifyTiktokResult(winning, providerResults) {
   const items = winning?.items || [];
-  const first = items[0];
-  if (!first || await probeDownloadable(first.url)) return winning;
+  if (!items.length || await probeDownloadableItems(winning)) return winning;
   const candidates = providerResults
     .filter(entry => entry.result !== winning)
     .sort((a, b) => b.score - a.score);
   for (const candidate of candidates) {
-    const candidateFirst = candidate.result?.items?.[0];
-    if (candidateFirst && await probeDownloadable(candidateFirst.url)) {
+    if (candidate.result?.items?.length && await probeDownloadableItems(candidate.result)) {
       return { ...candidate.result };
     }
   }
@@ -397,9 +404,9 @@ module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   if (req.method !== "POST") return res.status(405).json({ error: "Metode tidak didukung." });
-  const limited = rateLimit.check(req);
+  const limited = await rateLimit.check(req);
   if (!limited.ok) {
-    res.setHeader("Retry-After", "60");
+    res.setHeader("Retry-After", String(limited.retryAfter || 60));
     return res.status(429).json({ error: "Terlalu banyak permintaan. Coba lagi sebentar." });
   }
   const url = typeof req.body?.url === "string" ? req.body.url.trim() : "";

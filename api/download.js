@@ -27,8 +27,8 @@ function sameOrigin(req){const referer=String(req.headers?.referer||""); if(!ref
 module.exports=async function handler(req,res){
   res.setHeader("Cache-Control","private, no-store"); res.setHeader("X-Content-Type-Options","nosniff");
   if(req.method!=="GET")return res.status(405).json({error:"Metode tidak didukung."});
-  const limited=rateLimit.check(req);
-  if(!limited.ok){res.setHeader("Retry-After","60");return res.status(429).json({error:"Terlalu banyak permintaan. Coba lagi sebentar."});}
+  const limited=await rateLimit.check(req);
+  if(!limited.ok){res.setHeader("Retry-After",String(limited.retryAfter||60));return res.status(429).json({error:"Terlalu banyak permintaan. Coba lagi sebentar."});}
   const tokenData=verifyDownloadToken(req.query?.token);
   const rawUrl=tokenData?.url || (sameOrigin(req) ? String(req.query?.url||"") : "");
   const filename=safeFilename(tokenData?.filename || req.query?.filename || "media");

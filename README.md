@@ -42,6 +42,7 @@ Script build menyalin aset dari `public/` ke `dist/`, sedangkan Vercel membangun
 - `DOWNLOAD_TOKEN_SECRET`: secret acak untuk signed download token. Bila tidak tersedia, proxy hanya menerima permintaan same-origin.
 - `MAX_DOWNLOAD_BYTES`: batas ukuran unduhan; default 1 GiB.
 - `PUBLIC_ORIGIN`: origin produksi opsional.
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`: backend rate limit persisten opsional (Upstash Redis REST). Saat keduanya diisi, rate limit ditegakkan lintas instance serverless; tanpa ini, smoothing/rate limit hanya berlaku per-instance (best-effort).
 
 ## Pengembangan
 
@@ -56,7 +57,8 @@ Proses instalasi mengunduh binary yt-dlp Linux. Untuk build yang sepenuhnya repr
 
 ## Perlindungan
 
-- Rate limit per IP pada endpoint `/api/extract` (20/menit) dan `/api/download` (40/menit) dengan jendela 60 detik.
+- Rate limit per IP pada endpoint `/api/extract` (20/menit) dan `/api/download` (40/menit) dengan jendela 60 detik. Penegakan bersifat **best-effort per instance** di deployment serverless kecuali `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` diisi, yang menegakkannya secara persisten antar instance. Jendela `Retry-After` disesuaikan dengan sisa waktu.
+- Deteksi IP: `CF-Connecting-IP` (Cloudflare), lalu `X-Forwarded-For` nilai paling kanan **hanya saat ada penanda proxy tepercaya** (Vercel/Cloudflare), lalu `socket.remoteAddress`. Header `X-Forwarded-For` dari koneksi langsung tidak dipercaya untuk mencegah spoofing.
 - Download media hanya dari daftar host yang diizinkan, dengan redirect divalidasi per-hop, batas ukuran streaming, dan `nosniff`.
 - Saat `DOWNLOAD_TOKEN_SECRET` diisi, unduhan memakai token HMAC bertanda tangan dengan masa berlaku 15 menit; tanpa secret, download dibatasi same-origin.
 - Header keamanan diterapkan global: CSP, HSTS, `X-Frame-Options: DENY`, COOP/CORP, dan lainnya.

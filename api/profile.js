@@ -88,46 +88,6 @@ async function resolveWavyItem(item) {
   return null;
 }
 
-async function resolveDirectItem(item, cookiePath) {
-  const source = item._sourceUrl;
-  if (!source) return null;
-  const options = {
-    dumpSingleJson: true, skipDownload: true, noWarnings: true, ignoreNoFormatsError: true,
-    socketTimeout: 10, retries: 1, extractorRetries: 1, geoBypass: true,
-    ...(cookiePath ? { cookies: cookiePath } : {})
-  };
-  let data;
-  try {
-    data = await runtimeExtractor()(source, options, { timeout: 20000 });
-  } catch {
-    return null;
-  }
-  const formats = (Array.isArray(data?.formats) ? data.formats : [])
-    .filter(f => f?.url && f?.vcodec && f?.vcodec !== "none" && f?.acodec && f?.acodec !== "none");
-  if (!formats.length) return null;
-  const candidates = [...formats].sort((a, b) => ((Number(b.height) || 0) * 1_000_000 + (Number(b.width) || 0)) - ((Number(a.height) || 0) * 1_000_000 + (Number(a.width) || 0)));
-  let selected = null;
-  for (const format of candidates) {
-    if (await probeDownloadable(format.url)) { selected = format; break; }
-  }
-  if (!selected) selected = candidates[0];
-  if (!selected?.url) return null;
-  const ext = selected.ext || extensionFromUrl(selected.url, "mp4");
-  return {
-    id: item.id,
-    type: "video",
-    url: selected.url,
-    thumb: item.thumb || data.thumbnail || null,
-    filename: item.filename || `${safeName(data.title || `tiktok-${item.id || "media"}`)}.${ext}`,
-    mime: mimeFromFilename(`media.${ext}`),
-    quality: selected.width && selected.height ? `${selected.width}×${selected.height}` : selected.height ? `${selected.height}p` : "Kualitas tertinggi",
-    hasAudio: selected.acodec !== "none",
-    codec: selected.vcodec || undefined,
-    height: Number(selected.height) || undefined,
-    width: Number(selected.width) || undefined
-  };
-}
-
 function finalizeProfileResult(raw, { offset, limit }) {
   const items = raw.items.map(item => {
     const { _sourceUrl, _formats, ...clean } = item;
@@ -259,12 +219,7 @@ module.exports = async function handler(req, res) {
     const raw = await requestYtdlp(classified, { limit, offset });
     let resolved = raw;
     if (raw.platform === "tiktok" && raw.items?.length) {
-      const cookiePath = process.env.YTDLP_COOKIES_B64 ? "/tmp/tukangambil-cookies.txt" : null;
-      const replacements = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, async item => {
-        let replacement = await resolveWavyItem(item);
-        if (!replacement?.url) replacement = await resolveDirectItem(item, cookiePath);
-        return replacement;
-      });
+      const replacements = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, resolveWavyItem);
       resolved = {
         ...raw,
         items: raw.items.map((item, index) => replacements[index] && replacements[index].url ? replacements[index] : item)
@@ -288,6 +243,5 @@ module.exports.requestYtdlp = requestYtdlp;
 module.exports.runtimeExtractor = runtimeExtractor;
 module.exports.probeDownloadable = probeDownloadable;
 module.exports.resolveWavyItem = resolveWavyItem;
-module.exports.resolveDirectItem = resolveDirectItem;
 module.exports.mapWithConcurrency = mapWithConcurrency;
 module.exports.finalizeProfileResult = finalizeProfileResult;

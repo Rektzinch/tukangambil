@@ -120,7 +120,8 @@ function toMediaItem(replacement, item) {
     hasAudio: replacement.type === "video" ? replacement.hasAudio !== false : undefined,
     codec: replacement.codec || undefined,
     height: Number(replacement.height) || undefined,
-    width: Number(replacement.width) || undefined
+    width: Number(replacement.width) || undefined,
+    publishedAt: item.publishedAt || replacement.publishedAt || undefined
   };
 }
 
@@ -204,7 +205,34 @@ function finalizeProfileResult(raw, { offset, limit }) {
   };
 }
 
-function normalizeYtdlp(data, classified, limit, offset) {
+function publishedAtFromEntry(entry, classified) {
+  const timestamp = Number(entry?.timestamp || entry?.release_timestamp);
+  if (Number.isFinite(timestamp) && timestamp > 0) {
+    const date = new Date(timestamp * 1000);
+    if (!Number.isNaN(date.getTime())) return date.toISOString();
+  }
+
+  const uploadDate = String(entry?.upload_date || "");
+  if (/^\d{8}$/.test(uploadDate)) {
+    const year = uploadDate.slice(0, 4);
+    const month = uploadDate.slice(4, 6);
+    const day = uploadDate.slice(6, 8);
+    const date = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+    if (!Number.isNaN(date.getTime())) return date.toISOString();
+  }
+
+  if (classified.platform === "tiktok" && /^\d{15,20}$/.test(String(entry?.id || ""))) {
+    try {
+      const derived = Number(BigInt(entry.id) >> 32n) * 1000;
+      const earliestTikTok = Date.UTC(2016, 0, 1);
+      if (derived >= earliestTikTok && derived <= Date.now() + 86_400_000) return new Date(derived).toISOString();
+    } catch {}
+  }
+
+  return undefined;
+}
+
+function normalizeYtdlp(data, classified, limit, offset, order = "newest") {
   const entries = (Array.isArray(data?.entries) ? data.entries : [data]).filter(Boolean).slice(0, limit);
   const items = [];
   for (const [index, entry] of entries.entries()) {
@@ -224,7 +252,8 @@ function normalizeYtdlp(data, classified, limit, offset) {
       hasAudio: selected ? selected.acodec !== "none" : true,
       codec: selected?.vcodec || undefined,
       height: Number(selected?.height) || undefined,
-      width: Number(selected?.width) || undefined
+      width: Number(selected?.width) || undefined,
+      publishedAt: publishedAtFromEntry(entry, classified)
     };
     if (classified.platform === "tiktok") {
       if (formats.length) item._formats = formats;
@@ -244,12 +273,12 @@ function normalizeYtdlp(data, classified, limit, offset) {
     description: data.description || entries[0]?.description || "",
     tags: collectTags(data.tags || [], data.description || ""),
     author: data.uploader || data.channel || entries[0]?.uploader || classified.handle || "",
-    pagination: { offset, limit, hasMore },
+    pagination: { offset, limit, hasMore, order },
     items
   };
 }
 
-async function requestYtdlp(classified, { limit, offset }) {
+async function requestYtdlp(classified, { limit, offset, order }) {
   const cookiePath = process.env.YTDLP_COOKIES_B64 ? "/tmp/tukangambil-cookies.txt" : null;
   if (cookiePath && !fs.existsSync(cookiePath)) fs.writeFileSync(cookiePath, Buffer.from(process.env.YTDLP_COOKIES_B64, "base64"), { mode: 0o600 });
   const isTiktok = classified.platform === "tiktok";
@@ -257,6 +286,7 @@ async function requestYtdlp(classified, { limit, offset }) {
     dumpSingleJson: true, skipDownload: true, noWarnings: true, ignoreNoFormatsError: true,
     socketTimeout: 12, retries: 2, extractorRetries: 2, geoBypass: true,
     yesPlaylist: true, playlistStart: offset + 1, playlistEnd: offset + limit,
+    ...(order === "oldest" ? { playlistReverse: true } : {}),
     ...(cookiePath ? { cookies: cookiePath } : {})
   };
   // For TikTok, prefer flat playlist (one profile-page request, then resolve
@@ -270,7 +300,7 @@ async function requestYtdlp(classified, { limit, offset }) {
     for (let attempt = 0; attempt < MAX_YTDLP_ATTEMPTS; attempt += 1) {
       try {
         const data = await runtimeExtractor()(classified.url, mode.options, { timeout: GLOBAL_DEADLINE_MS - 3000 });
-        return normalizeYtdlp(data, classified, limit, offset);
+        return normalizeYtdlp(data, classified, limit, offset, order);
       } catch (error) {
         lastError = error;
         const message = String(error?.message || "");
@@ -299,6 +329,7 @@ module.exports = async function handler(req, res) {
   const url = typeof req.body?.url === "string" ? req.body.url.trim() : "";
   const rawLimit = Number(req.body?.limit);
   const rawOffset = Number(req.body?.offset);
+  const order = req.body?.order === "oldest" ? "oldest" : "newest";
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), MAX_LIMIT) : DEFAULT_LIMIT;
   const offset = Number.isFinite(rawOffset) && rawOffset > 0 ? Math.floor(rawOffset) : 0;
   const classified = classifyUrl(url);
@@ -306,7 +337,7 @@ module.exports = async function handler(req, res) {
   if (!["tiktok", "instagram", "facebook", "threads", "x"].includes(classified.platform)) return res.status(400).json({ error: "Profil platform ini belum didukung.", code: "UNSUPPORTED_PLATFORM" });
   try {
     const [raw, profileInfo] = await Promise.all([
-      requestYtdlp(classified, { limit, offset }),
+      requestYtdlp(classified, { limit, offset, order }),
       fetchProfileInfo(classified)
     ]);
     let resolved = raw;
@@ -340,6 +371,7 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports.normalizeYtdlp = normalizeYtdlp;
+module.exports.publishedAtFromEntry = publishedAtFromEntry;
 module.exports.requestYtdlp = requestYtdlp;
 module.exports.runtimeExtractor = runtimeExtractor;
 module.exports.probeDownloadable = probeDownloadable;

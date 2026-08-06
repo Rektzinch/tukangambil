@@ -32,6 +32,7 @@ let profileOffset = 0;
 let profileHasMore = false;
 let profileLoading = false;
 let profileUrl = "";
+let profileOrder = "newest";
 
 const revealObserver = "IntersectionObserver" in window
   ? new IntersectionObserver(entries => {
@@ -76,6 +77,13 @@ function formatCount(value) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}jt`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}rb`;
   return String(n);
+}
+
+function formatMediaDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
 function loadStats() {
@@ -420,15 +428,19 @@ function render() {
   const isCollection = data.items.length > 2;
   if (isCollection) {
     const profile = data.profile;
+    const isProfileCollection = data.resourceKind === "profile" || Boolean(profile);
     const collectionWarnings = data.warnings?.length ? `<div class="message show">${data.warnings.map(escapeHtml).join(" · ")}</div>` : "";
     const loadMore = profileHasMore ? `<button class="load-more" type="button">Muat lebih banyak</button>` : "";
+    const orderControl = isProfileCollection ? `<label class="order-control" for="profileOrder"><span>Urutkan media</span><select id="profileOrder"><option value="newest"${profileOrder === "newest" ? " selected" : ""}>Terbaru ke terlama</option><option value="oldest"${profileOrder === "oldest" ? " selected" : ""}>Terlama ke terbaru</option></select></label>` : "";
     const profileCard = profile ? `<div class="profile-card"><div class="profile-avatar">${profile.avatar ? `<img src="${escapeHtml(avatarUrl(profile))}" alt="Avatar ${escapeHtml(profile.username)}">` : `<span>${escapeHtml((profile.username || "?")[0].toUpperCase())}</span>`}</div><div class="profile-main"><h2>${escapeHtml(profile.nickname || "")}</h2><p class="profile-handle">@${escapeHtml(profile.username || "")}</p>${profile.bio ? `<p class="profile-bio">${escapeHtml(profile.bio)}</p>` : ""}<div class="profile-stats"><span><b>${formatCount(profile.followers)}</b><small>Pengikut</small></span><span><b>${formatCount(profile.following)}</b><small>Mengikuti</small></span><span><b>${formatCount(profile.mediaCount)}</b><small>Media</small></span><span><b>${formatCount(profile.likes)}</b><small>Suka</small></span></div></div></div>` : "";
-    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div>${profileCard}<div class="grid">${data.items.map((item, i) => `<article class="tile${item.available === false ? " unavailable" : ""}"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span>${item.quality ? `<span class="badge badge-quality${item.bestQuality ? " best" : ""}">${escapeHtml(item.quality)}</span>` : ""}${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}${item.available === false ? '<span class="badge badge-muted">Tidak tersedia</span>' : ""}</div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions">${item.available === false ? '<span class="tile-note">Media tidak dapat diunduh</span>' : `<button class="preview-btn" data-preview="${i}" type="button">Preview</button><button class="hd-btn" data-hd="${i}" type="button">Versi HD</button>`}</div></article>`).join("")}</div>${loadMore}</section><div class="download-all-sticky"><button class="download-all" type="button">Download semua media</button></div>`;
+    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><div class="collection-title"><div><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p></div>${orderControl}</div>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div>${profileCard}<div class="grid">${data.items.map((item, i) => { const date = formatMediaDate(item.publishedAt); return `<article class="tile${item.available === false ? " unavailable" : ""}"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span>${item.quality ? `<span class="badge badge-quality${item.bestQuality ? " best" : ""}">${escapeHtml(item.quality)}</span>` : ""}${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}${item.available === false ? '<span class="badge badge-muted">Tidak tersedia</span>' : ""}</div>${date ? `<time class="tile-date" datetime="${escapeHtml(item.publishedAt)}">${escapeHtml(date)}</time>` : ""}<h3>${escapeHtml(item.filename)}</h3><div class="tile-actions">${item.available === false ? '<span class="tile-note">Media tidak dapat diunduh</span>' : `<button class="preview-btn" data-preview="${i}" type="button">Preview</button><button class="hd-btn" data-hd="${i}" type="button">Versi HD</button>`}</div></article>`; }).join("")}</div>${loadMore}</section><div class="download-all-sticky"><button class="download-all" type="button">Download semua media</button></div>`;
     results.querySelectorAll("[data-preview]").forEach(button => button.addEventListener("click", () => openModal(Number(button.dataset.preview), button)));
     results.querySelectorAll("[data-hd]").forEach(button => button.addEventListener("click", () => openHdModal(Number(button.dataset.hd), button)));
     results.querySelectorAll(".download-all").forEach(button => button.addEventListener("click", () => downloadAll()));
     const loadMoreBtn = results.querySelector(".load-more");
     if (loadMoreBtn) loadMoreBtn.addEventListener("click", () => loadMoreProfile());
+    const orderSelect = results.querySelector("#profileOrder");
+    if (orderSelect) orderSelect.addEventListener("change", () => reloadProfileOrder(orderSelect.value, orderSelect));
   } else {
     const item = data.items[index];
     results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.resourceKind || "media")} · media</span><b>${index + 1}/${data.items.length}</b></div><section class="card"><div class="preview">${preview(item)}</div><div class="meta"><div class="badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span><span class="badge${item.bestQuality ? " badge-quality best" : ""}">${escapeHtml(item.quality)}</span>${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}</div><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${data.warnings?.length ? `<p>${data.warnings.map(escapeHtml).join(" · ")}</p>` : ""}<a class="download" data-dl="${index}" href="${escapeHtml(mediaUrl(item))}">Download media ini</a>${data.items.length > 1 ? '<div class="nav"><button data-nav="prev">Sebelumnya</button><button data-nav="next">Berikutnya</button></div>' : ""}</div></section>`;
@@ -487,7 +499,7 @@ form.addEventListener("submit", async event => {
     const response = await fetch(profile ? "/api/profile" : "/api/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(profile ? { url, limit: 24 } : { url, mode }),
+      body: JSON.stringify(profile ? { url, limit: 24, order: profileOrder } : { url, mode }),
       signal: extractController.signal
     });
     const body = await readApiResponse(response);
@@ -496,6 +508,7 @@ form.addEventListener("submit", async event => {
     profileUrl = url;
     profileOffset = body.pagination?.offset ?? 0;
     profileHasMore = Boolean(body.pagination?.hasMore);
+    if (profile) profileOrder = body.pagination?.order || profileOrder;
     render();
     bump("success");
     bumpPlatform(body.platform);
@@ -526,7 +539,7 @@ async function loadMoreProfile() {
     const response = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, limit: 24, offset: profileOffset + 24 })
+      body: JSON.stringify({ url, limit: 24, offset: profileOffset + 24, order: profileOrder })
     });
     const body = await readApiResponse(response);
     const seen = new Set(data.items.map(item => item.id || item.url));
@@ -547,6 +560,38 @@ async function loadMoreProfile() {
       resetBtn.disabled = false;
       resetBtn.textContent = "Muat lebih banyak";
     }
+  }
+}
+
+async function reloadProfileOrder(nextOrder, select) {
+  if (profileLoading || !profileUrl || nextOrder === profileOrder) return;
+  const previousOrder = profileOrder;
+  profileOrder = nextOrder === "oldest" ? "oldest" : "newest";
+  profileLoading = true;
+  select.disabled = true;
+  showLoader(profileOrder === "oldest" ? "Mengurutkan dari media terlama…" : "Mengurutkan dari media terbaru…");
+  try {
+    const response = await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: profileUrl, limit: 24, offset: 0, order: profileOrder })
+    });
+    const body = await readApiResponse(response);
+    data = body;
+    index = 0;
+    profileOffset = body.pagination?.offset ?? 0;
+    profileHasMore = Boolean(body.pagination?.hasMore);
+    profileOrder = body.pagination?.order || profileOrder;
+    render();
+    show(profileOrder === "oldest" ? "Media diurutkan dari yang paling lama." : "Media diurutkan dari yang paling baru.", "success");
+  } catch (error) {
+    profileOrder = previousOrder;
+    select.value = previousOrder;
+    select.disabled = false;
+    show(error.message || "Gagal mengubah urutan media.", "error");
+  } finally {
+    profileLoading = false;
+    hideLoader();
   }
 }
 

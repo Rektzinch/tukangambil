@@ -78,11 +78,12 @@ Selain per-tautan, layanan menyediakan endpoint profil untuk menarik media publi
 POST /api/profile
 Content-Type: application/json
 
-{ "url": "https://www.tiktok.com/@username", "limit": 24, "offset": 0 }
+{ "url": "https://www.tiktok.com/@username", "limit": 24, "offset": 0, "order": "newest" }
 ```
 
 - `url` wajib berupa tautan profil (mis. `tiktok.com/@username`, `instagram.com/username`, `threads.net/@username`).
 - `limit` opsional (default 24, maksimum 100) dan `offset` opsional untuk pagination.
-- Respons memakai bentuk `validateResult` yang sama dengan `/api/extract`, ditambah `pagination: { offset, limit, hasMore }`.
+- `order` opsional: `newest` (default) untuk terbaru ke terlama atau `oldest` untuk terlama ke terbaru. Nilai ini harus dipertahankan pada request pagination berikutnya.
+- Respons memakai bentuk `validateResult` yang sama dengan `/api/extract`, ditambah `pagination: { offset, limit, hasMore, order }`.
 - Selama `pagination.hasMore === true`, panggil lagi dengan `offset` yang bertambah untuk menarik halaman berikutnya.
 - Setiap item memiliki `downloadToken` (bila `DOWNLOAD_TOKEN_SECRET` diisi) dan dapat diunduh lewat `/api/download` seperti media lainnya.

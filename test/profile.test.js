@@ -41,7 +41,7 @@ test("normalizeYtdlp maps entries to items with pagination", () => {
     title: "demo",
     uploader: "demo_user",
     entries: [
-      { title: "v1", thumbnail: "https://img/t1.jpg", formats: [{ url: "https://v1.mp4", vcodec: "h264", acodec: "aac", height: 1080, width: 1920, ext: "mp4" }] },
+      { title: "v1", timestamp: 1710000000, thumbnail: "https://img/t1.jpg", formats: [{ url: "https://v1.mp4", vcodec: "h264", acodec: "aac", height: 1080, width: 1920, ext: "mp4" }] },
       { title: "v2", thumbnail: "https://img/t2.jpg", formats: [{ url: "https://v2.mp4", vcodec: "h264", acodec: "aac", height: 720, width: 1280, ext: "mp4" }] }
     ]
   };
@@ -54,9 +54,22 @@ test("normalizeYtdlp maps entries to items with pagination", () => {
   assert.equal(result.items[0].type, "video");
   assert.equal(result.items[0].url, "https://v1.mp4");
   assert.equal(result.items[0].hasAudio, true);
+  assert.equal(result.items[0].publishedAt, "2024-03-09T16:00:00.000Z");
   assert.equal(result.pagination.offset, 0);
   assert.equal(result.pagination.limit, 10);
   assert.equal(result.pagination.hasMore, false);
+  assert.equal(result.pagination.order, "newest");
+});
+
+test("normalizeYtdlp preserves oldest-first pagination order", () => {
+  const data = {
+    title: "demo",
+    entries: [{ id: "7260000000000000000", title: "old", formats: [] }]
+  };
+  const classified = { platform: "tiktok", kind: "profile", handle: "demo", url: "https://www.tiktok.com/@demo/" };
+  const result = profile.normalizeYtdlp(data, classified, 10, 0, "oldest");
+  assert.equal(result.pagination.order, "oldest");
+  assert.match(result.items[0].publishedAt, /^2023-/);
 });
 
 test("normalizeYtdlp sets hasMore when entries fill the limit", () => {

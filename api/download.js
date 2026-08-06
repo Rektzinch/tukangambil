@@ -3,7 +3,7 @@ const { Readable, Transform } = require("node:stream");
 const { hostnameMatches, safeFilename, mimeFromFilename, verifyDownloadToken, sanitizeProviderError } = require("../lib/core");
 const { createRateLimiter } = require("../lib/rate-limit");
 
-const MEDIA_HOSTS = ["tiktok.com","tiktokcdn.com","tiktokcdn-us.com","tiktokv.com","tikwm.com","muscdn.com","muscdn.app","byteoversea.com","ibyteimg.com","akamaized.net","cdninstagram.com","fbcdn.net","twimg.com","snapcdn.app","api.hitube.io","googlevideo.com"];
+const MEDIA_HOSTS = ["tiktok.com","tiktokcdn.com","tiktokcdn-us.com","tiktokv.com","tikwm.com","muscdn.com","muscdn.app","byteoversea.com","ibyteimg.com","akamaized.net","cdninstagram.com","fbcdn.net","twimg.com","snapcdn.app","api.hitube.io","googlevideo.com","fastdl.app","media.fastdl.app"];
 const MAX_REDIRECTS = 3;
 const MAX_BYTES = Math.max(5 * 1024 * 1024, Number(process.env.MAX_DOWNLOAD_BYTES) || 1024 * 1024 * 1024);
 const rateLimit = createRateLimiter({ max: 40 });

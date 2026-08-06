@@ -43,6 +43,8 @@ Script build menyalin aset dari `public/` ke `dist/`, sedangkan Vercel membangun
 - `MAX_DOWNLOAD_BYTES`: batas ukuran unduhan; default 1 GiB.
 - `PUBLIC_ORIGIN`: origin produksi opsional.
 - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`: backend rate limit persisten opsional (Upstash Redis REST). Saat keduanya diisi, rate limit ditegakkan lintas instance serverless; tanpa ini, smoothing/rate limit hanya berlaku per-instance (best-effort).
+- `FASTDL_API_URL` / `FASTDL_API_KEY`: provider Instagram via backend fastdl milik sendiri (`api-wh.fastdl.app`). Saat `FASTDL_API_KEY` diisi, permintaan post/reel/story/profil Instagram ikut dilayani oleh worker hub fastdl sebagai provider tambahan dalam race. Backend harus menerima header API-key (`FASTDL_API_KEY_HEADER`, default `x-api-key`).
+- `FASTDL_MEDIA_URL`: origin proxy media fastdl (default `https://media.fastdl.app`) untuk URL download bertanda tangan.
 
 ## Pengembangan
 

@@ -167,6 +167,8 @@ kbd { margin-left:8px; color:var(--muted); font:9px var(--mono); }
 .badges,.tile-badges { display:flex; gap:6px; flex-wrap:wrap; }
 .badge { padding:4px 8px; border:1px solid rgba(192,57,43,.22); color:var(--accent-2); background:var(--accent-2-bg); border-radius:6px; font:9px var(--mono); text-transform:uppercase; }
 .badge-muted { color:var(--muted); border-color:var(--line); background:var(--paper-2); }
+.badge-quality { color:var(--ink); background:var(--paper); }
+.badge-quality.best { border-color:var(--accent); color:var(--accent); background:var(--accent-2-bg); }
 .meta .download { margin-top:auto; }
 .nav { display:flex; gap:7px; margin-top:14px; }
 .nav button { flex:1; height:44px; color:var(--muted); }

@@ -26,6 +26,19 @@ test("convertItem maps an image item", () => {
   assert.ok(item.filename.endsWith(".jpg"));
 });
 
+test("convertItem keeps real quality, size and flags best", () => {
+  const item = wavy.convertItem({ type: "video", quality: "hd", size: 1919094, extension: "mp4", url: "https://cdn.example/v.mp4" }, "Reel", null);
+  assert.equal(item.quality, "HD");
+  assert.equal(item.bestQuality, true);
+  assert.equal(item.size, "1.9MB");
+});
+
+test("convertItem maps unknown quality without flagging best", () => {
+  const item = wavy.convertItem({ type: "video", quality: "normal", extension: "mp4", url: "https://cdn.example/v.mp4" }, "Reel", null);
+  assert.equal(item.quality, "Normal");
+  assert.equal(item.bestQuality, undefined);
+});
+
 test("wavyEndpoint falls back to default", () => {
   const orig = process.env.WAVY_API_URL;
   try {

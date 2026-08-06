@@ -115,6 +115,8 @@ function toMediaItem(replacement, item) {
     filename: item.filename || `${safeName(replacement.title || item.title || `media-${item.id || "video"}`)}.${ext}`,
     mime: replacement.mime || mimeFromFilename(`media.${ext}`),
     quality: replacement.quality || "Kualitas tertinggi",
+    bestQuality: replacement.bestQuality || undefined,
+    size: replacement.size || undefined,
     hasAudio: replacement.type === "video" ? replacement.hasAudio !== false : undefined,
     codec: replacement.codec || undefined,
     height: Number(replacement.height) || undefined,

@@ -27,6 +27,7 @@ let extractController = null;
 let profileOffset = 0;
 let profileHasMore = false;
 let profileLoading = false;
+let profileUrl = "";
 
 const statsKey = "tukangambil:stats:v2";
 let stats = loadStats();
@@ -98,7 +99,11 @@ function platformFromUrl(value) {
 
 function updateUrlFeedback() {
   const platform = platformFromUrl(input.value);
-  if (platform) {
+  if (mode === "profile") {
+    formHint.classList.add("detected");
+    formHintIcon.textContent = "✓";
+    formHintText.textContent = "Mode Media Profil aktif. Masukkan tautan profil untuk mengambil semua media.";
+  } else if (platform) {
     formHint.classList.add("detected");
     formHintIcon.textContent = "✓";
     formHintText.textContent = `${platform} terdeteksi. Tautan siap diproses.`;
@@ -163,7 +168,7 @@ function start() {
   submit.disabled = true;
   submitText.textContent = "Sedang mengambil";
   form.setAttribute("aria-busy", "true");
-  const kind = resourceKind(input.value);
+  const kind = mode === "profile" ? "profil" : resourceKind(input.value);
 
   function updateScan(seconds) {
     scanTime.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
@@ -206,7 +211,7 @@ function stop() {
   scanPercent.textContent = "0%";
   scanProgressTrack.setAttribute("aria-valuenow", "0");
   submit.disabled = false;
-  submitText.textContent = "Ambil dan preview";
+  submitText.textContent = mode === "profile" ? "Ambil media profil" : "Ambil dan preview";
   form.removeAttribute("aria-busy");
 }
 
@@ -353,6 +358,8 @@ document.querySelectorAll(".mode").forEach(button => button.addEventListener("cl
   button.classList.add("active");
   button.setAttribute("aria-pressed", "true");
   mode = button.dataset.mode;
+  submitText.textContent = mode === "profile" ? "Ambil media profil" : "Ambil dan preview";
+  updateUrlFeedback();
 }));
 
 pasteBtn.addEventListener("click", async () => {
@@ -384,7 +391,7 @@ form.addEventListener("submit", async event => {
   start();
   extractController = new AbortController();
   const requestTimeout = setTimeout(() => extractController.abort(), 60_000);
-  const profile = isProfileUrl(url);
+  const profile = mode === "profile" || isProfileUrl(url);
   try {
     const response = await fetch(profile ? "/api/profile" : "/api/extract", {
       method: "POST",
@@ -395,6 +402,7 @@ form.addEventListener("submit", async event => {
     const body = await readApiResponse(response);
     data = body;
     index = 0;
+    profileUrl = url;
     profileOffset = body.pagination?.offset ?? 0;
     profileHasMore = Boolean(body.pagination?.hasMore);
     render();
@@ -421,15 +429,16 @@ async function loadMoreProfile() {
     btn.textContent = "Memuat...";
   }
   try {
-    const url = input.value || (data.title ? `https://www.tiktok.com/@${encodeURIComponent(data.author)}/` : "");
+    const url = profileUrl || input.value || (data.author ? `https://www.tiktok.com/@${encodeURIComponent(data.author)}/` : "");
+    if (!url) throw new Error("URL profil tidak tersedia.");
     const response = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, limit: 24, offset: profileOffset + 24 })
     });
     const body = await readApiResponse(response);
-    const seen = new Set(data.items.map(item => item.url));
-    const added = body.items.filter(item => !seen.has(item.url));
+    const seen = new Set(data.items.map(item => item.id || item.url));
+    const added = body.items.filter(item => !seen.has(item.id || item.url));
     data.items.push(...added);
     data.pagination = body.pagination;
     profileOffset = body.pagination?.offset ?? profileOffset + 24;

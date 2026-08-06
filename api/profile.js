@@ -14,7 +14,8 @@ const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 100;
 const GLOBAL_DEADLINE_MS = 45000;
 const PROBE_TIMEOUT_MS = 5000;
-const WAVY_CONCURRENCY = 4;
+const WAVY_CONCURRENCY = 5;
+const MAX_YTDLP_ATTEMPTS = 3;
 let extractor;
 
 function runtimeExtractor() {
@@ -26,6 +27,10 @@ function runtimeExtractor() {
   fs.chmodSync(runtime, 0o755);
   extractor = youtubeDlPackage.create(runtime);
   return extractor;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function probeDownloadable(url) {
@@ -56,6 +61,15 @@ async function mapWithConcurrency(items, limit, mapper) {
   return results;
 }
 
+function buildCandidateUrls(item) {
+  const candidates = [];
+  for (const format of Array.isArray(item._formats) ? item._formats : []) {
+    if (format?.url) candidates.push({ url: format.url, height: Number(format.height) || 0 });
+  }
+  if (item._sourceUrl) candidates.push({ url: item._sourceUrl, source: true });
+  return candidates;
+}
+
 async function resolveWavyItem(item) {
   try {
     const source = item._sourceUrl;
@@ -63,7 +77,7 @@ async function resolveWavyItem(item) {
     const result = await wavy.requestWavy({ platform: "tiktok", kind: "post", url: source }, "auto");
     const replacement = result.items.find(candidate => candidate?.url);
     if (!replacement?.url) return null;
-    return { ...replacement, thumb: item.thumb || replacement.thumb };
+    return { ...replacement, id: item.id || replacement.id, thumb: item.thumb || replacement.thumb, filename: item.filename };
   } catch {
     return null;
   }
@@ -72,18 +86,25 @@ async function resolveWavyItem(item) {
 async function applyWavyFallback(raw) {
   if (raw.platform !== "tiktok" || !raw.items?.length) return raw;
   const resolved = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, resolveWavyItem);
+  let wavyCount = 0;
   const items = raw.items.map((item, index) => {
     const replacement = resolved[index];
-    const final = replacement || item;
-    const { _sourceUrl, ...clean } = final;
+    let final;
+    if (replacement?.url) {
+      wavyCount += 1;
+      final = replacement;
+    } else {
+      final = item;
+    }
+    const { _sourceUrl, _formats, ...clean } = final;
+    if (!clean.url) clean.url = item.url;
     return clean;
   });
-  const resolvedCount = resolved.filter(r => r?.url).length;
   return {
     ...raw,
-    provider: resolvedCount ? "yt-dlp+wavy" : raw.provider,
+    provider: wavyCount ? "yt-dlp+wavy" : raw.provider,
     items,
-    warnings: [...(raw.warnings || []), resolvedCount ? `Semua unduhan diambil via Wavy (${resolvedCount}/${raw.items.length}).` : "Wavy tidak tersedia; memakai tautan langsung yt-dlp."]
+    warnings: [...(raw.warnings || []), wavyCount ? `Unduhan diambil via Wavy (${wavyCount}/${raw.items.length}).` : ""]
   };
 }
 
@@ -91,12 +112,13 @@ function normalizeYtdlp(data, classified, limit, offset) {
   const entries = (Array.isArray(data?.entries) ? data.entries : [data]).filter(Boolean).slice(0, limit);
   const items = [];
   for (const [index, entry] of entries.entries()) {
-    const formats = Array.isArray(entry.formats) ? entry.formats : [];
-    const selected = formats
-      .filter(f => f?.url && f?.vcodec && f?.vcodec !== "none" && f?.acodec && f?.acodec !== "none")
+    const formats = (Array.isArray(entry.formats) ? entry.formats : [])
+      .filter(f => f?.url && f?.vcodec && f?.vcodec !== "none" && f?.acodec && f?.acodec !== "none");
+    const selected = [...formats]
       .sort((a, b) => ((Number(b.height) || 0) * 1_000_000 + (Number(b.width) || 0)) - ((Number(a.height) || 0) * 1_000_000 + (Number(a.width) || 0)))[0] || null;
     const ext = selected?.ext || (selected?.url ? extensionFromUrl(selected.url, "mp4") : "mp4");
     const item = {
+      id: entry.id || undefined,
       type: "video",
       url: selected?.url || "",
       thumb: entry.thumbnail || data.thumbnail || null,
@@ -109,6 +131,7 @@ function normalizeYtdlp(data, classified, limit, offset) {
       width: Number(selected?.width) || undefined
     };
     if (classified.platform === "tiktok") {
+      if (formats.length) item._formats = formats;
       const sourceUrl = entry.webpage_url || (entry.id ? `https://www.tiktok.com/@${encodeURIComponent(classified.handle)}/video/${entry.id}` : "");
       if (sourceUrl) item._sourceUrl = sourceUrl;
     }
@@ -133,16 +156,28 @@ function normalizeYtdlp(data, classified, limit, offset) {
 async function requestYtdlp(classified, { limit, offset }) {
   const cookiePath = process.env.YTDLP_COOKIES_B64 ? "/tmp/tukangambil-cookies.txt" : null;
   if (cookiePath && !fs.existsSync(cookiePath)) fs.writeFileSync(cookiePath, Buffer.from(process.env.YTDLP_COOKIES_B64, "base64"), { mode: 0o600 });
-  const isTiktok = classified.platform === "tiktok";
   const options = {
     dumpSingleJson: true, skipDownload: true, noWarnings: true, ignoreNoFormatsError: true,
-    socketTimeout: 12, retries: 1, extractorRetries: 1, geoBypass: true,
+    socketTimeout: 12, retries: 2, extractorRetries: 2, geoBypass: true,
     yesPlaylist: true, playlistStart: offset + 1, playlistEnd: offset + limit,
-    ...(isTiktok ? { flatPlaylist: true } : {}),
     ...(cookiePath ? { cookies: cookiePath } : {})
   };
-  const data = await runtimeExtractor()(classified.url, options, { timeout: GLOBAL_DEADLINE_MS - 3000 });
-  return normalizeYtdlp(data, classified, limit, offset);
+  let lastError = null;
+  for (let attempt = 0; attempt < MAX_YTDLP_ATTEMPTS; attempt += 1) {
+    try {
+      const data = await runtimeExtractor()(classified.url, options, { timeout: GLOBAL_DEADLINE_MS - 3000 });
+      return normalizeYtdlp(data, classified, limit, offset);
+    } catch (error) {
+      lastError = error;
+      const message = String(error?.message || "");
+      if (attempt + 1 < MAX_YTDLP_ATTEMPTS && /secondary user ID|Unexpected response|HTTP Error 4\d\d|Requested format|unable to extract/i.test(message)) {
+        await sleep(1500 * (attempt + 1));
+        continue;
+      }
+      break;
+    }
+  }
+  throw lastError || new Error("Gagal membaca daftar media profil.");
 }
 
 module.exports = async function handler(req, res) {

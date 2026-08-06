@@ -9,6 +9,7 @@ const {
 } = require("../lib/core");
 const { createRateLimiter } = require("../lib/rate-limit");
 const fastdl = require("../lib/instagram-fastdl");
+const igDirect = require("../lib/instagram-direct");
 
 const TIKWM_URL = "https://www.tikwm.com/api/";
 const MUSICALDOWN_URL = "https://musicaldown.com/id";
@@ -390,7 +391,10 @@ async function raceProviders(attempts, mode, { graceMs = 8000 } = {}) {
 
 function buildAttempts(classified, mode) {
   const attempts = [];
-  if (classified.kind === "profile" && classified.platform === "instagram") attempts.push({ name: "instagram-profile", run: () => requestInstagramProfile(classified) });
+  if (classified.kind === "profile" && classified.platform === "instagram") {
+    attempts.push({ name: "instagram-profile", run: () => requestInstagramProfile(classified) });
+    attempts.push({ name: "instagram-direct", run: () => igDirect.requestProfile(classified.handle) });
+  }
   if (fastdl.isEnabled()) attempts.push({ name: "fastdl", run: () => fastdl.requestFastdl(classified) });
   if (classified.platform === "tiktok") {
     attempts.push({ name: "musicaldown", run: () => requestMusicalDown(classified, mode) });

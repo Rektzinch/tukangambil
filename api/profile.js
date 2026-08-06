@@ -18,6 +18,11 @@ const PROBE_TIMEOUT_MS = 5000;
 const WAVY_CONCURRENCY = 5;
 const PROFILE_INFO_URL = "https://www.tikwm.com/api/user/info";
 const PROFILE_INFO_TIMEOUT_MS = 9000;
+const TIKTOK_PROFILE_FEED_URL = "https://www.tiktok.com/api/creator/item_list/";
+const TIKTOK_FEED_TIMEOUT_MS = 7000;
+const TIKTOK_FEED_PAGE_SIZE = 15;
+const TIKTOK_OLDEST_MAX_PAGES = 60;
+const THIRTY_DAYS_MS = 30 * 86_400_000;
 const MAX_YTDLP_ATTEMPTS = 3;
 let extractor;
 
@@ -51,6 +56,8 @@ async function fetchProfileInfo(classified) {
     if (!response.ok || payload?.code !== 0 || !payload?.data?.user) return null;
     const { user, stats } = payload.data;
     return {
+      id: String(user.id || ""),
+      secUid: String(user.secUid || ""),
       platform: classified.platform,
       username: user.uniqueId || handle,
       nickname: user.nickname || handle,
@@ -65,6 +72,114 @@ async function fetchProfileInfo(classified) {
   } catch {
     return null;
   }
+}
+
+function accountCreatedAtFromId(id) {
+  if (!/^\d{15,20}$/.test(String(id || ""))) return 0;
+  try {
+    const timestamp = Number(BigInt(id) >> 32n) * 1000;
+    return timestamp >= Date.UTC(2016, 0, 1) && timestamp <= Date.now() ? timestamp : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function tiktokFeedQuery(secUid, cursor, deviceId) {
+  return {
+    aid: "1988", app_language: "en", app_name: "tiktok_web", browser_language: "en-US",
+    browser_name: "Mozilla", browser_online: "true", browser_platform: "Win32",
+    browser_version: "5.0 (Windows)", channel: "tiktok_web", cookie_enabled: "true",
+    count: String(TIKTOK_FEED_PAGE_SIZE), cursor: String(cursor), device_id: deviceId,
+    device_platform: "web_pc", focus_state: "true", from_page: "user", history_len: "2",
+    is_fullscreen: "false", is_page_visible: "true", language: "en", os: "windows",
+    region: "US", screen_height: "1080", screen_width: "1920", secUid, type: "1",
+    tz_name: "UTC", verifyFp: `verify_${Math.random().toString(16).slice(2, 9)}`, webcast_language: "en"
+  };
+}
+
+async function fetchTikTokProfilePage(profileInfo, cursor, deviceId) {
+  const endpoint = new URL(TIKTOK_PROFILE_FEED_URL);
+  for (const [key, value] of Object.entries(tiktokFeedQuery(profileInfo.secUid, cursor, deviceId))) endpoint.searchParams.set(key, value);
+  const response = await fetch(endpoint, {
+    headers: {
+      Accept: "application/json",
+      Referer: `https://www.tiktok.com/@${encodeURIComponent(profileInfo.username)}`,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/127 Safari/537.36"
+    },
+    signal: AbortSignal.timeout(TIKTOK_FEED_TIMEOUT_MS)
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || payload?.statusCode !== 0 || !Array.isArray(payload.itemList)) {
+    throw Object.assign(new Error("Halaman lama profil TikTok tidak dapat dibaca."), { code: "TIKTOK_OLDEST_PAGE_FAILED" });
+  }
+  return payload;
+}
+
+function normalizeTikTokOldest(entries, classified, profileInfo, { limit, offset }) {
+  const ordered = [...entries]
+    .filter(entry => entry?.id && Number(entry.createTime))
+    .sort((a, b) => Number(a.createTime) - Number(b.createTime) || String(a.id).localeCompare(String(b.id)));
+  const selected = ordered.slice(offset, offset + limit);
+  const items = selected.map((entry, index) => {
+    const sourceUrl = `https://www.tiktok.com/@${encodeURIComponent(classified.handle)}/video/${entry.id}`;
+    const cover = entry.video?.cover?.urlList?.[0] || entry.video?.originCover?.urlList?.[0] || null;
+    return {
+      id: String(entry.id), type: "video", url: "", thumb: cover,
+      filename: `${safeName(entry.desc || `${classified.handle}-${offset + index + 1}`)}.mp4`,
+      mime: "video/mp4", quality: "Kualitas tertinggi", hasAudio: true,
+      publishedAt: new Date(Number(entry.createTime) * 1000).toISOString(), _sourceUrl: sourceUrl
+    };
+  });
+  const hasMore = profileInfo.mediaCount ? offset + items.length < profileInfo.mediaCount : ordered.length > offset + items.length;
+  return {
+    platform: "tiktok", provider: "tiktok-oldest", resourceKind: "profile", collection: true,
+    partial: hasMore, title: `${profileInfo.nickname || profileInfo.username} (@${profileInfo.username})`,
+    description: profileInfo.bio || "", author: profileInfo.username, tags: collectTags(profileInfo.bio || ""),
+    pagination: { offset, limit, hasMore, order: "oldest" }, items
+  };
+}
+
+async function requestTikTokOldest(classified, { limit, offset }, profileInfo) {
+  const createdAt = accountCreatedAtFromId(profileInfo?.id);
+  if (!createdAt || !profileInfo?.secUid) throw Object.assign(new Error("Identitas profil TikTok tidak lengkap."), { code: "TIKTOK_PROFILE_ID_MISSING" });
+
+  const targetCount = offset + limit;
+  const deviceId = String(7250000000000000000n + BigInt(Math.floor(Math.random() * 7_509_989_577)));
+  let windowMs = THIRTY_DAYS_MS;
+  let pagesRead = 0;
+  let collected = [];
+
+  while (pagesRead < TIKTOK_OLDEST_MAX_PAGES) {
+    let cursor = Math.min(createdAt + windowMs, Date.now());
+    const entries = [];
+    const seen = new Set();
+    let reachedOldest = false;
+    while (pagesRead < TIKTOK_OLDEST_MAX_PAGES) {
+      const page = await fetchTikTokProfilePage(profileInfo, cursor, deviceId);
+      pagesRead += 1;
+      const batch = page.itemList.filter(item => item?.id && Number(item.createTime));
+      for (const item of batch) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        entries.push(item);
+      }
+      if (!batch.length || !page.hasMorePrevious) {
+        reachedOldest = true;
+        break;
+      }
+      const nextCursor = Number(batch.at(-1).createTime) * 1000;
+      if (!nextCursor || nextCursor >= cursor) break;
+      cursor = nextCursor;
+    }
+    collected = entries;
+    if (reachedOldest && collected.length >= targetCount) break;
+    if (createdAt + windowMs >= Date.now()) break;
+    windowMs *= 2;
+  }
+
+  const result = normalizeTikTokOldest(collected, classified, profileInfo, { limit, offset });
+  if (!result.items.length) throw Object.assign(new Error("Media paling lama tidak ditemukan pada profil ini."), { code: "TIKTOK_OLDEST_EMPTY" });
+  return result;
 }
 
 async function probeDownloadable(url) {
@@ -346,10 +461,19 @@ module.exports = async function handler(req, res) {
   if (!classified || classified.kind !== "profile") return res.status(400).json({ error: "URL profil tidak dikenali atau tidak didukung.", code: "UNSUPPORTED_URL" });
   if (!["tiktok", "instagram", "facebook", "threads", "x"].includes(classified.platform)) return res.status(400).json({ error: "Profil platform ini belum didukung.", code: "UNSUPPORTED_PLATFORM" });
   try {
-    const [raw, profileInfo] = await Promise.all([
-      requestYtdlp(classified, { limit, offset, order }),
-      fetchProfileInfo(classified)
-    ]);
+    let raw;
+    let profileInfo;
+    if (classified.platform === "tiktok" && order === "oldest") {
+      profileInfo = await fetchProfileInfo(classified);
+      raw = profileInfo
+        ? await requestTikTokOldest(classified, { limit, offset }, profileInfo)
+        : await requestYtdlp(classified, { limit, offset, order });
+    } else {
+      [raw, profileInfo] = await Promise.all([
+        requestYtdlp(classified, { limit, offset, order }),
+        fetchProfileInfo(classified)
+      ]);
+    }
     let resolved = raw;
     if (raw.platform === "tiktok" && raw.items?.length) {
       const replacements = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, resolveItem);
@@ -364,7 +488,8 @@ module.exports = async function handler(req, res) {
     }
     const result = finalizeProfileResult(resolved, { offset, limit });
     if (profileInfo) {
-      result.profile = profileInfo;
+      const { id, secUid, ...publicProfile } = profileInfo;
+      result.profile = publicProfile;
       result.author = profileInfo.username || result.author;
       result.title = profileInfo.nickname ? `${profileInfo.nickname} (@${profileInfo.username})` : result.title;
     }
@@ -394,3 +519,7 @@ module.exports.resolveItem = resolveItem;
 module.exports.mapWithConcurrency = mapWithConcurrency;
 module.exports.finalizeProfileResult = finalizeProfileResult;
 module.exports.fetchProfileInfo = fetchProfileInfo;
+module.exports.accountCreatedAtFromId = accountCreatedAtFromId;
+module.exports.tiktokFeedQuery = tiktokFeedQuery;
+module.exports.normalizeTikTokOldest = normalizeTikTokOldest;
+module.exports.requestTikTokOldest = requestTikTokOldest;

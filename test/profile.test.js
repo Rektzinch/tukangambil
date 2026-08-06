@@ -80,6 +80,27 @@ test("playlist item ranges cover the full profile without overlap", () => {
   assert.deepEqual(profile.playlistPageOptions("oldest", 0, 24), { playlistItems: "-1:-24:-1" });
 });
 
+test("derives TikTok account creation time from user ID", () => {
+  assert.equal(new Date(profile.accountCreatedAtFromId("7306130619200226310")).toISOString(), "2023-11-27T13:18:14.000Z");
+  assert.equal(profile.accountCreatedAtFromId("invalid"), 0);
+});
+
+test("normalizes direct TikTok pages from oldest to newest", () => {
+  const classified = { platform: "tiktok", kind: "profile", handle: "demo" };
+  const profileInfo = { username: "demo", nickname: "Demo", bio: "bio", mediaCount: 100 };
+  const entries = [
+    { id: "3", createTime: 1700000300, desc: "third" },
+    { id: "1", createTime: 1700000100, desc: "first" },
+    { id: "2", createTime: 1700000200, desc: "second" }
+  ];
+  const firstPage = profile.normalizeTikTokOldest(entries, classified, profileInfo, { limit: 2, offset: 0 });
+  const secondPage = profile.normalizeTikTokOldest(entries, classified, profileInfo, { limit: 2, offset: 2 });
+  assert.deepEqual(firstPage.items.map(item => item.id), ["1", "2"]);
+  assert.deepEqual(secondPage.items.map(item => item.id), ["3"]);
+  assert.equal(firstPage.pagination.order, "oldest");
+  assert.equal(firstPage.pagination.hasMore, true);
+});
+
 test("normalizeYtdlp sets hasMore when entries fill the limit", () => {
   const data = {
     title: "demo",

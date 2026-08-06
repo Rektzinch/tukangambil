@@ -9,8 +9,10 @@ const scan = document.querySelector("#scan");
 const scanLabel = document.querySelector("#scanLabel");
 const scanSubLabel = document.querySelector("#scanSubLabel");
 const scanTime = document.querySelector("#scanTime");
+const scanPercent = document.querySelector("#scanPercent");
 const scanProgress = document.querySelector("#scanProgress");
 const scanProgressTrack = document.querySelector("#scanProgressTrack");
+const scanSteps = [...document.querySelectorAll(".scan-steps span")];
 const pasteBtn = document.querySelector("#pasteBtn");
 const submitText = submit.querySelector("span");
 const formHint = document.querySelector("#formHint");
@@ -22,6 +24,9 @@ let index = 0;
 let timer = null;
 let modalReturnFocus = null;
 let extractController = null;
+let profileOffset = 0;
+let profileHasMore = false;
+let profileLoading = false;
 
 const statsKey = "tukangambil:stats:v2";
 let stats = loadStats();
@@ -106,6 +111,15 @@ function updateUrlFeedback() {
   }
 }
 
+function isProfileUrl(value) {
+  try {
+    const path = new URL(value).pathname.toLowerCase();
+    return path.split("/").filter(Boolean).length === 1 && path.includes("@");
+  } catch {
+    return false;
+  }
+}
+
 function resourceKind(url) {
   try {
     const path = new URL(url).pathname.toLowerCase();
@@ -122,11 +136,30 @@ function normalizeUrl(value) {
   return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
+function setScanStep(activeIndex) {
+  scanSteps.forEach((el, i) => {
+    el.classList.toggle("active", i === activeIndex);
+    el.classList.toggle("done", i < activeIndex);
+  });
+}
+
+function setScanLabel(label, sub) {
+  if (scanLabel.textContent === label) return;
+  scanLabel.classList.remove("flip");
+  void scanLabel.offsetWidth;
+  scanLabel.textContent = label;
+  scanSubLabel.textContent = sub;
+  scanLabel.classList.add("flip");
+}
+
 function start() {
   const began = Date.now();
   scan.hidden = false;
   scanTime.textContent = "00:00";
   scanProgress.style.width = "12%";
+  scan.style.setProperty("--p", "12%");
+  scanPercent.textContent = "12%";
+  setScanStep(0);
   submit.disabled = true;
   submitText.textContent = "Sedang mengambil";
   form.setAttribute("aria-busy", "true");
@@ -137,21 +170,23 @@ function start() {
     const progress = Math.min(94, Math.round(12 + 82 * (1 - Math.exp(-seconds / 14))));
     scanProgress.style.width = `${progress}%`;
     scanProgressTrack.setAttribute("aria-valuenow", String(progress));
+    scan.style.setProperty("--p", `${progress}%`);
+    scanPercent.textContent = `${progress}%`;
     if (seconds >= 45) {
-      scanLabel.textContent = "Masih memproses media";
-      scanSubLabel.textContent = "Provider membutuhkan waktu lebih lama dari biasanya";
+      setScanStep(3);
+      setScanLabel("Masih memproses media", "Provider membutuhkan waktu lebih lama dari biasanya");
     } else if (seconds >= 18) {
-      scanLabel.textContent = "Menyiapkan preview";
-      scanSubLabel.textContent = "Hasil akhir sedang dirapikan untuk ditampilkan";
+      setScanStep(3);
+      setScanLabel("Menyiapkan preview", "Hasil akhir sedang dirapikan untuk ditampilkan");
     } else if (seconds >= 8) {
-      scanLabel.textContent = "Memilih kualitas terbaik";
-      scanSubLabel.textContent = "Membandingkan format video, gambar, dan audio";
+      setScanStep(2);
+      setScanLabel("Memilih kualitas terbaik", "Membandingkan format video, gambar, dan audio");
     } else if (seconds >= 3) {
-      scanLabel.textContent = "Menghubungi provider";
-      scanSubLabel.textContent = `Mencari sumber ${kind} yang dapat diunduh`;
+      setScanStep(1);
+      setScanLabel("Menghubungi provider", `Mencari sumber ${kind} yang dapat diunduh`);
     } else {
-      scanLabel.textContent = "Memvalidasi tautan";
-      scanSubLabel.textContent = `Memeriksa alamat dan jenis ${kind}`;
+      setScanStep(0);
+      setScanLabel("Memvalidasi tautan", `Memeriksa alamat dan jenis ${kind}`);
     }
   }
 
@@ -167,6 +202,8 @@ function stop() {
   timer = null;
   scan.hidden = true;
   scanProgress.style.width = "0";
+  scan.style.setProperty("--p", "0%");
+  scanPercent.textContent = "0%";
   scanProgressTrack.setAttribute("aria-valuenow", "0");
   submit.disabled = false;
   submitText.textContent = "Ambil dan preview";
@@ -279,7 +316,8 @@ function render() {
   const isCollection = data.items.length > 2;
   if (isCollection) {
     const collectionWarnings = data.warnings?.length ? `<div class="message show">${data.warnings.map(escapeHtml).join(" · ")}</div>` : "";
-    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div><div class="grid">${data.items.map((item, i) => `<article class="tile"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span></div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions"><button class="preview-btn" data-preview="${i}" type="button">Preview</button><a class="download" data-dl="${i}" href="${escapeHtml(mediaUrl(item))}">Download</a></div></article>`).join("")}</div></section>`;
+    const loadMore = profileHasMore ? `<button class="load-more" type="button">Muat lebih banyak</button>` : "";
+    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div><div class="grid">${data.items.map((item, i) => `<article class="tile"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span></div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions"><button class="preview-btn" data-preview="${i}" type="button">Preview</button><a class="download" data-dl="${i}" href="${escapeHtml(mediaUrl(item))}">Download</a></div></article>`).join("")}</div>${loadMore}</section>`;
     results.querySelectorAll("[data-preview]").forEach(button => button.addEventListener("click", () => openModal(Number(button.dataset.preview), button)));
     results.querySelector(".download-all").addEventListener("click", async () => {
       show("Browser akan memulai unduhan satu per satu. Izinkan multiple downloads bila diminta.");
@@ -293,6 +331,8 @@ function render() {
         await new Promise(resolve => setTimeout(resolve, 450));
       }
     });
+    const loadMoreBtn = results.querySelector(".load-more");
+    if (loadMoreBtn) loadMoreBtn.addEventListener("click", () => loadMoreProfile());
   } else {
     const item = data.items[index];
     results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.resourceKind || "media")} · ${escapeHtml(data.provider)}</span><b>${index + 1}/${data.items.length}</b></div><section class="card"><div class="preview">${preview(item)}</div><div class="meta"><div class="badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span><span class="badge">${escapeHtml(item.quality)}</span></div><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${data.warnings?.length ? `<p>${data.warnings.map(escapeHtml).join(" · ")}</p>` : ""}<a class="download" data-dl="${index}" href="${escapeHtml(mediaUrl(item))}">Download media ini</a>${data.items.length > 1 ? '<div class="nav"><button data-nav="prev">Sebelumnya</button><button data-nav="next">Berikutnya</button></div>' : ""}</div></section>`;
@@ -344,16 +384,19 @@ form.addEventListener("submit", async event => {
   start();
   extractController = new AbortController();
   const requestTimeout = setTimeout(() => extractController.abort(), 60_000);
+  const profile = isProfileUrl(url);
   try {
-    const response = await fetch("/api/extract", {
+    const response = await fetch(profile ? "/api/profile" : "/api/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, mode }),
+      body: JSON.stringify(profile ? { url, limit: 24 } : { url, mode }),
       signal: extractController.signal
     });
     const body = await readApiResponse(response);
     data = body;
     index = 0;
+    profileOffset = body.pagination?.offset ?? 0;
+    profileHasMore = Boolean(body.pagination?.hasMore);
     render();
     bump("success");
     bumpPlatform(body.platform);
@@ -368,6 +411,37 @@ form.addEventListener("submit", async event => {
     stop();
   }
 });
+
+async function loadMoreProfile() {
+  if (profileLoading || !profileHasMore) return;
+  profileLoading = true;
+  const btn = results.querySelector(".load-more");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Memuat...";
+  }
+  try {
+    const url = input.value || (data.title ? `https://www.tiktok.com/@${encodeURIComponent(data.author)}/` : "");
+    const response = await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, limit: 24, offset: profileOffset + 24 })
+    });
+    const body = await readApiResponse(response);
+    const seen = new Set(data.items.map(item => item.url));
+    const added = body.items.filter(item => !seen.has(item.url));
+    data.items.push(...added);
+    data.pagination = body.pagination;
+    profileOffset = body.pagination?.offset ?? profileOffset + 24;
+    profileHasMore = Boolean(body.pagination?.hasMore);
+    render();
+    show(`${data.items.length} media ditampilkan.`, "success");
+  } catch (error) {
+    show(error.message || "Gagal memuat media berikutnya.", "error");
+  } finally {
+    profileLoading = false;
+  }
+}
 
 document.addEventListener("keydown", event => {
   if (event.key === "Escape") closeModal();

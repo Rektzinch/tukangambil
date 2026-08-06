@@ -59,7 +59,7 @@ Proses instalasi mengunduh binary yt-dlp Linux. Untuk build yang sepenuhnya repr
 
 ## Perlindungan
 
-- Rate limit per IP pada endpoint `/api/extract` (20/menit) dan `/api/download` (40/menit) dengan jendela 60 detik. Penegakan bersifat **best-effort per instance** di deployment serverless kecuali `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` diisi, yang menegakkannya secara persisten antar instance. Jendela `Retry-After` disesuaikan dengan sisa waktu.
+- Rate limit per IP pada endpoint `/api/extract` dan `/api/profile` (20/menit) serta `/api/download` (40/menit) dengan jendela 60 detik. Penegakan bersifat **best-effort per instance** di deployment serverless kecuali `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` diisi, yang menegakkannya secara persisten antar instance. Jendela `Retry-After` disesuaikan dengan sisa waktu.
 - Deteksi IP: `CF-Connecting-IP` (Cloudflare), lalu `X-Forwarded-For` nilai paling kanan **hanya saat ada penanda proxy tepercaya** (Vercel/Cloudflare), lalu `socket.remoteAddress`. Header `X-Forwarded-For` dari koneksi langsung tidak dipercaya untuk mencegah spoofing.
 - Download media hanya dari daftar host yang diizinkan, dengan redirect divalidasi per-hop, batas ukuran streaming, dan `nosniff`.
 - Saat `DOWNLOAD_TOKEN_SECRET` diisi, unduhan memakai token HMAC bertanda tangan dengan masa berlaku 15 menit; tanpa secret, download dibatasi same-origin.
@@ -69,3 +69,20 @@ Proses instalasi mengunduh binary yt-dlp Linux. Untuk build yang sepenuhnya repr
 ## Catatan batasan
 
 Platform dapat mengubah endpoint, markup, dan aturan login tanpa pemberitahuan. Story bersifat sementara dan sebagian Story publik tetap memerlukan sesi akun karena aturan platform. Health endpoint membedakan kesiapan runtime dari keterjangkauan provider; provider eksternal tidak dianggap sehat hanya karena terkonfigurasi.
+
+## Endpoint profil: mengambil semua media dari profil
+
+Selain per-tautan, layanan menyediakan endpoint profil untuk menarik media publik dari sebuah profil user:
+
+```
+POST /api/profile
+Content-Type: application/json
+
+{ "url": "https://www.tiktok.com/@username", "limit": 24, "offset": 0 }
+```
+
+- `url` wajib berupa tautan profil (mis. `tiktok.com/@username`, `instagram.com/username`, `threads.net/@username`).
+- `limit` opsional (default 24, maksimum 100) dan `offset` opsional untuk pagination.
+- Respons memakai bentuk `validateResult` yang sama dengan `/api/extract`, ditambah `pagination: { offset, limit, hasMore }`.
+- Selama `pagination.hasMore === true`, panggil lagi dengan `offset` yang bertambah untuk menarik halaman berikutnya.
+- Setiap item memiliki `downloadToken` (bila `DOWNLOAD_TOKEN_SECRET` diisi) dan dapat diunduh lewat `/api/download` seperti media lainnya.

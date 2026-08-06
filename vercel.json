@@ -13,6 +13,10 @@
       "maxDuration": 60,
       "includeFiles": "node_modules/youtube-dl-exec/bin/**"
     },
+    "api/profile.js": {
+      "maxDuration": 60,
+      "includeFiles": "node_modules/youtube-dl-exec/bin/**"
+    },
     "api/download.js": {
       "maxDuration": 60
     },

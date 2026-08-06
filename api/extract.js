@@ -79,8 +79,9 @@ function imageCandidate(entry) {
     .sort((a, b) => ((Number(b.width) || 0) * (Number(b.height) || 0)) - ((Number(a.width) || 0) * (Number(a.height) || 0)))[0] || null;
 }
 
-function normalizeYtdlp(data, classified, mode) {
-  const entries = (Array.isArray(data?.entries) ? data.entries : [data]).filter(Boolean).slice(0, PROFILE_LIMIT);
+function normalizeYtdlp(data, classified, mode, { limit = PROFILE_LIMIT, offset = 0 } = {}) {
+  const all = (Array.isArray(data?.entries) ? data.entries : [data]).filter(Boolean);
+  const entries = all.slice(offset, offset + limit);
   const items = [];
   for (const [index, entry] of entries.entries()) {
     const formats = Array.isArray(entry.formats) ? entry.formats : [];
@@ -108,23 +109,25 @@ function normalizeYtdlp(data, classified, mode) {
   }
   return {
     platform: classified.platform, provider: "yt-dlp", resourceKind: classified.kind,
-    collection: classified.kind === "profile", partial: classified.kind === "profile" && entries.length >= PROFILE_LIMIT,
+    collection: classified.kind === "profile", partial: classified.kind === "profile" && entries.length >= limit,
     title: data.title || entries[0]?.title || `${classified.platform} media`,
     description: data.description || entries[0]?.description || "", tags: collectTags(data.tags || [], data.description || ""),
     author: data.uploader || data.channel || entries[0]?.uploader || classified.handle || "", items
   };
 }
 
-async function requestYtdlp(classified, mode) {
+async function requestYtdlp(classified, mode, { limit = PROFILE_LIMIT, offset = 0 } = {}) {
   const cookiePath = process.env.YTDLP_COOKIES_B64 ? "/tmp/tukangambil-cookies.txt" : null;
   if (cookiePath && !fs.existsSync(cookiePath)) fs.writeFileSync(cookiePath, Buffer.from(process.env.YTDLP_COOKIES_B64, "base64"), { mode: 0o600 });
+  const isProfile = classified.kind === "profile";
   const options = {
     dumpSingleJson: true, skipDownload: true, noWarnings: true, ignoreNoFormatsError: true,
     socketTimeout: 12, retries: 1, extractorRetries: 1, geoBypass: true,
-    ...(classified.kind === "profile" ? { yesPlaylist: true, playlistEnd: PROFILE_LIMIT } : {}),
+    ...(isProfile ? { yesPlaylist: true, playlistStart: offset + 1, playlistEnd: offset + limit } : {}),
     ...(cookiePath ? { cookies: cookiePath } : {})
   };
-  const data = await runtimeExtractor()(classified.url, options, { timeout: classified.kind === "profile" ? 42000 : 25000 });
+  const data = await runtimeExtractor()(classified.url, options, { timeout: isProfile ? 42000 : 25000 });
+  return normalizeYtdlp(data, classified, mode, { limit, offset });
   return normalizeYtdlp(data, classified, mode);
 }
 

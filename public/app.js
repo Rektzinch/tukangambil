@@ -18,6 +18,8 @@ const submitText = submit.querySelector("span");
 const formHint = document.querySelector("#formHint");
 const formHintIcon = document.querySelector("#formHintIcon");
 const formHintText = document.querySelector("#formHintText");
+const loader = document.querySelector("#loader");
+const loaderText = document.querySelector("#loaderText");
 let mode = "auto";
 let data = null;
 let index = 0;
@@ -36,6 +38,25 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
   })[char]);
+}
+
+function showLoader(text) {
+  if (!loader) return;
+  loaderText.textContent = text || "Memuat media…";
+  loader.hidden = false;
+}
+
+function hideLoader() {
+  if (!loader) return;
+  loader.hidden = true;
+}
+
+function formatCount(value) {
+  const n = Number(value) || 0;
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}M`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}jt`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}rb`;
+  return String(n);
 }
 
 function loadStats() {
@@ -160,6 +181,7 @@ function setScanLabel(label, sub) {
 function start() {
   const began = Date.now();
   scan.hidden = false;
+  showLoader(mode === "profile" ? "Mengambil media profil…" : "Mengekstrak media…");
   scanTime.textContent = "00:00";
   scanProgress.style.width = "12%";
   scan.style.setProperty("--p", "12%");
@@ -206,6 +228,7 @@ function stop() {
   clearInterval(timer);
   timer = null;
   scan.hidden = true;
+  hideLoader();
   scanProgress.style.width = "0";
   scan.style.setProperty("--p", "0%");
   scanPercent.textContent = "0%";
@@ -229,6 +252,12 @@ function mediaUrl(item, preview = false) {
 function thumbUrl(item) {
   if (!item.thumb) return "";
   const query = new URLSearchParams({ url: item.thumb, filename: "preview.jpg", preview: "1" });
+  return `/api/download?${query}`;
+}
+
+function avatarUrl(item) {
+  if (!item?.avatar) return "";
+  const query = new URLSearchParams({ url: item.avatar, filename: "avatar.jpg", preview: "1" });
   return `/api/download?${query}`;
 }
 
@@ -320,9 +349,11 @@ function openModal(i, button) {
 function render() {
   const isCollection = data.items.length > 2;
   if (isCollection) {
+    const profile = data.profile;
     const collectionWarnings = data.warnings?.length ? `<div class="message show">${data.warnings.map(escapeHtml).join(" · ")}</div>` : "";
     const loadMore = profileHasMore ? `<button class="load-more" type="button">Muat lebih banyak</button>` : "";
-    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div><div class="grid">${data.items.map((item, i) => `<article class="tile${item.available === false ? " unavailable" : ""}"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span>${item.available === false ? '<span class="badge badge-muted">Tidak tersedia</span>' : ""}</div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions">${item.available === false ? '<span class="tile-note">Media tidak dapat diunduh</span>' : `<button class="preview-btn" data-preview="${i}" type="button">Preview</button><a class="download" data-dl="${i}" href="${escapeHtml(mediaUrl(item))}">Download</a>`}</div></article>`).join("")}</div>${loadMore}</section>`;
+    const profileCard = profile ? `<div class="profile-card"><div class="profile-avatar">${profile.avatar ? `<img src="${escapeHtml(avatarUrl(profile))}" alt="Avatar ${escapeHtml(profile.username)}">` : `<span>${escapeHtml((profile.username || "?")[0].toUpperCase())}</span>`}</div><div class="profile-main"><h2>${escapeHtml(profile.nickname || "")}</h2><p class="profile-handle">@${escapeHtml(profile.username || "")}</p>${profile.bio ? `<p class="profile-bio">${escapeHtml(profile.bio)}</p>` : ""}<div class="profile-stats"><span><b>${formatCount(profile.followers)}</b><small>Pengikut</small></span><span><b>${formatCount(profile.following)}</b><small>Mengikuti</small></span><span><b>${formatCount(profile.mediaCount)}</b><small>Media</small></span><span><b>${formatCount(profile.likes)}</b><small>Suka</small></span></div></div></div>` : "";
+    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div>${profileCard}<div class="grid">${data.items.map((item, i) => `<article class="tile${item.available === false ? " unavailable" : ""}"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span>${item.available === false ? '<span class="badge badge-muted">Tidak tersedia</span>' : ""}</div><h3>${escapeHtml(item.filename)}</h3><div class="tile-actions">${item.available === false ? '<span class="tile-note">Media tidak dapat diunduh</span>' : `<button class="preview-btn" data-preview="${i}" type="button">Preview</button><a class="download" data-dl="${i}" href="${escapeHtml(mediaUrl(item))}">Download</a>`}</div></article>`).join("")}</div>${loadMore}</section>`;
     results.querySelectorAll("[data-preview]").forEach(button => button.addEventListener("click", () => openModal(Number(button.dataset.preview), button)));
     results.querySelector(".download-all").addEventListener("click", async () => {
       const available = data.items.filter(item => item.available !== false);
@@ -431,8 +462,9 @@ async function loadMoreProfile() {
   const btn = results.querySelector(".load-more");
   if (btn) {
     btn.disabled = true;
-    btn.textContent = "Memuat...";
+    btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Memuat…';
   }
+  showLoader("Memuat media berikutnya…");
   try {
     const url = profileUrl || input.value || (data.author ? `https://www.tiktok.com/@${encodeURIComponent(data.author)}/` : "");
     if (!url) throw new Error("URL profil tidak tersedia.");
@@ -454,6 +486,12 @@ async function loadMoreProfile() {
     show(error.message || "Gagal memuat media berikutnya.", "error");
   } finally {
     profileLoading = false;
+    hideLoader();
+    const resetBtn = results.querySelector(".load-more");
+    if (resetBtn) {
+      resetBtn.disabled = false;
+      resetBtn.textContent = "Muat lebih banyak";
+    }
   }
 }
 

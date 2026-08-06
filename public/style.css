@@ -31,7 +31,6 @@ a { color:inherit; }
 @keyframes rise { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
 @keyframes pop { from{opacity:0;transform:scale(.98)} to{opacity:1;transform:scale(1)} }
 @keyframes spin { to{transform:rotate(360deg)} }
-@keyframes blink { 50%{opacity:.35} }
 
 /* ---------- Top bar ---------- */
 .topbar {
@@ -41,12 +40,9 @@ a { color:inherit; }
   position:sticky; top:0; z-index:40;
 }
 .brand { display:flex; align-items:baseline; gap:9px; font-family:var(--serif); font-size:22px; font-weight:600; letter-spacing:-.02em; text-decoration:none; }
-.brand small { font:10px var(--mono); color:var(--muted); letter-spacing:.12em; text-transform:uppercase; }
 .topnav { display:flex; gap:26px; margin-left:auto; margin-right:26px; }
 .topnav a { color:var(--muted); font-size:13px; font-weight:500; text-decoration:none; transition:color .2s; }
 .topnav a:hover { color:var(--accent); }
-.service-pill { display:flex; align-items:center; gap:8px; color:var(--muted); font:10px var(--mono); letter-spacing:.08em; text-transform:uppercase; }
-.service-pill span { width:7px; height:7px; background:var(--accent); border-radius:50%; animation:blink 1.6s infinite; }
 
 /* ---------- Hero ---------- */
 .hero { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(300px,.95fr); align-items:center; gap:54px; padding:60px 0 52px; }
@@ -232,6 +228,27 @@ footer { padding:0 20px 34px; text-align:center; color:var(--muted); font:10px v
 footer span { color:var(--ink); font-weight:600; }
 footer i { color:var(--accent); font-style:normal; margin:0 7px; }
 
+/* ---------- Loader ---------- */
+.loader { display:flex; align-items:center; justify-content:center; gap:11px; margin:22px 0; padding:16px; border:1px dashed var(--line); border-radius:12px; color:var(--muted); font:11px var(--mono); letter-spacing:.05em; }
+.loader[hidden] { display:none; }
+.spinner { width:16px; height:16px; flex:none; border:2px solid rgba(192,57,43,.22); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+.load-more .spinner { width:13px; height:13px; border-width:2px; border-color:var(--accent); border-top-color:transparent; }
+
+/* ---------- Profile card ---------- */
+.profile-card { display:flex; gap:20px; align-items:flex-start; padding:24px 28px; border-top:1px solid var(--line); background:rgba(28,26,22,.015); }
+.profile-avatar { width:72px; height:72px; flex:none; border-radius:50%; overflow:hidden; border:1px solid var(--line); background:var(--paper); display:grid; place-items:center; }
+.profile-avatar img { width:100%; height:100%; object-fit:cover; }
+.profile-avatar span { font-family:var(--serif); font-size:28px; color:var(--accent); }
+.profile-main { min-width:0; flex:1; }
+.profile-main h2 { margin:0; font-family:var(--serif); font-size:22px; letter-spacing:-.02em; }
+.profile-handle { color:var(--accent); font:12px var(--mono); margin:2px 0 0; }
+.profile-bio { margin:8px 0 0; color:var(--muted); font-size:13px; line-height:1.6; }
+.profile-stats { display:flex; flex-wrap:wrap; gap:0; margin-top:14px; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+.profile-stats span { flex:1; min-width:72px; padding:10px 14px; text-align:center; border-right:1px solid var(--line); }
+.profile-stats span:last-child { border-right:0; }
+.profile-stats b { display:block; font-family:var(--serif); font-size:18px; color:var(--ink); letter-spacing:-.01em; }
+.profile-stats small { display:block; margin-top:2px; color:var(--muted); font:9px var(--mono); letter-spacing:.05em; text-transform:uppercase; }
+
 /* ---------- Responsive ---------- */
 @media (max-width:900px){
   .shell { width:min(100% - 28px,700px); }
@@ -250,7 +267,6 @@ footer i { color:var(--accent); font-style:normal; margin:0 7px; }
   .shell { width:calc(100% - 24px); }
   .topbar { height:60px; }
   .topnav { display:none; }
-  .service-pill { font-size:9px; }
   .hero { padding:34px 0 26px; }
   h1 { font-size:clamp(38px,15vw,60px); margin-top:12px; }
   .lead { font-size:14px; }
@@ -292,6 +308,8 @@ footer i { color:var(--accent); font-style:normal; margin:0 7px; }
   .meta h2 { font-size:24px; }
   .collection-head { padding:20px; }
   .collection-head .download-all { width:100%; }
+  .profile-card { flex-direction:column; align-items:center; text-align:center; padding:20px; }
+  .profile-stats span { min-width:60px; padding:8px; }
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }

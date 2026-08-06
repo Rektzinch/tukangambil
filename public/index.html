@@ -9,9 +9,8 @@
 </head>
 <body>
 <header class="topbar shell">
-  <a class="brand" href="/" aria-label="TukangAmbil beranda"><span>TukangAmbil</span><small>media utility</small></a>
+  <a class="brand" href="/" aria-label="TukangAmbil beranda"><span>TukangAmbil</span></a>
   <nav class="topnav" aria-label="Navigasi utama"><a href="#download">Unduh</a><a href="#stats">Aktivitas</a></nav>
-  <div class="service-pill"><span></span> Provider online</div>
 </header>
 
 <main class="shell">
@@ -56,6 +55,7 @@
   </section>
 
   <section id="results" hidden></section>
+  <div id="loader" class="loader" hidden role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><b id="loaderText">Memuat media…</b></div>
   <section class="stats" id="stats" aria-label="Statistik penggunaan"><div><small>Permintaan ekstraksi</small><strong id="statTotal">0</strong><span class="stat-mark">↗</span></div><div><small>Ekstraksi berhasil</small><strong id="statSuccess">0</strong><span class="stat-mark">✦</span></div><div><small>Ekstraksi gagal</small><strong id="statFailed">0</strong><span class="stat-mark">×</span></div><div><small>Rasio ekstraksi</small><strong id="statRate">0%</strong><span class="stat-mark">%</span></div></section>
 
   <section class="platform-stats" id="platformStats" aria-labelledby="platformStatsTitle">

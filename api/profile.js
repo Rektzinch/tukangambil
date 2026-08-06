@@ -16,6 +16,8 @@ const MAX_LIMIT = 100;
 const GLOBAL_DEADLINE_MS = 45000;
 const PROBE_TIMEOUT_MS = 5000;
 const WAVY_CONCURRENCY = 5;
+const PROFILE_INFO_URL = "https://www.tikwm.com/api/user/info";
+const PROFILE_INFO_TIMEOUT_MS = 9000;
 const MAX_YTDLP_ATTEMPTS = 3;
 let extractor;
 
@@ -32,6 +34,37 @@ function runtimeExtractor() {
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchProfileInfo(classified) {
+  const handle = String(classified.handle || "").replace(/^@/, "");
+  if (classified.platform !== "tiktok" || !handle) return null;
+  try {
+    const body = new URLSearchParams({ unique_id: handle });
+    const response = await fetch(PROFILE_INFO_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body,
+      signal: AbortSignal.timeout(PROFILE_INFO_TIMEOUT_MS)
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || payload?.code !== 0 || !payload?.data?.user) return null;
+    const { user, stats } = payload.data;
+    return {
+      platform: classified.platform,
+      username: user.uniqueId || handle,
+      nickname: user.nickname || handle,
+      avatar: user.avatarMedium || user.avatarLarger || user.avatarThumb || null,
+      bio: user.signature || "",
+      verified: Boolean(user.verified),
+      followers: Number(stats?.followerCount) || 0,
+      following: Number(stats?.followingCount) || 0,
+      likes: Number(stats?.heartCount) || 0,
+      mediaCount: Number(stats?.videoCount) || 0
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function probeDownloadable(url) {
@@ -267,7 +300,10 @@ module.exports = async function handler(req, res) {
   if (!classified || classified.kind !== "profile") return res.status(400).json({ error: "URL profil tidak dikenali atau tidak didukung.", code: "UNSUPPORTED_URL" });
   if (!["tiktok", "instagram", "facebook", "threads", "x"].includes(classified.platform)) return res.status(400).json({ error: "Profil platform ini belum didukung.", code: "UNSUPPORTED_PLATFORM" });
   try {
-    const raw = await requestYtdlp(classified, { limit, offset });
+    const [raw, profileInfo] = await Promise.all([
+      requestYtdlp(classified, { limit, offset }),
+      fetchProfileInfo(classified)
+    ]);
     let resolved = raw;
     if (raw.platform === "tiktok" && raw.items?.length) {
       const replacements = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, resolveItem);
@@ -277,6 +313,11 @@ module.exports = async function handler(req, res) {
       };
     }
     const result = finalizeProfileResult(resolved, { offset, limit });
+    if (profileInfo) {
+      result.profile = profileInfo;
+      result.author = profileInfo.username || result.author;
+      result.title = profileInfo.nickname ? `${profileInfo.nickname} (@${profileInfo.username})` : result.title;
+    }
     applyDownloadFilenames(result);
     attachDownloadTokens(result);
     result.items = result.items.map(item => item.available ? item : { ...item, downloadToken: undefined, fallbackUrl: item.fallbackUrl || undefined });
@@ -299,3 +340,4 @@ module.exports.resolveMusicalDownItem = resolveMusicalDownItem;
 module.exports.resolveItem = resolveItem;
 module.exports.mapWithConcurrency = mapWithConcurrency;
 module.exports.finalizeProfileResult = finalizeProfileResult;
+module.exports.fetchProfileInfo = fetchProfileInfo;

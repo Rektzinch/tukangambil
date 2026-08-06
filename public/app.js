@@ -1,5 +1,7 @@
 "use strict";
 
+document.documentElement.classList.add("js");
+
 const form = document.querySelector("#downloadForm");
 const input = document.querySelector("#mediaUrl");
 const message = document.querySelector("#message");
@@ -31,6 +33,16 @@ let profileHasMore = false;
 let profileLoading = false;
 let profileUrl = "";
 
+const revealObserver = "IntersectionObserver" in window
+  ? new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("is-visible");
+        revealObserver.unobserve(entry.target);
+      });
+    }, { threshold: 0.14 })
+  : null;
+
 const statsKey = "tukangambil:stats:v2";
 let stats = loadStats();
 
@@ -38,6 +50,13 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
   })[char]);
+}
+
+function observeReveals(root = document) {
+  root.querySelectorAll(".reveal-on-scroll:not(.is-visible)").forEach(element => {
+    if (revealObserver) revealObserver.observe(element);
+    else element.classList.add("is-visible");
+  });
 }
 
 function showLoader(text) {
@@ -536,3 +555,4 @@ document.addEventListener("keydown", event => {
 });
 
 renderStats();
+observeReveals();

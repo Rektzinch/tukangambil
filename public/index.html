@@ -1,37 +1,35 @@
 <!doctype html>
 <html lang="id">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0A0A0A"><meta name="description" content="Unduh media publik TikTok, Instagram, Facebook, Threads, dan X — dari tautan tunggal atau seluruh profil.">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#F1EEE6"><meta name="description" content="Unduh media publik TikTok, Instagram, Facebook, Threads, dan X — dari tautan tunggal atau seluruh profil.">
 <title>TukangAmbil — Unduh media publik</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <header class="topbar shell">
-  <a class="brand" href="/" aria-label="TukangAmbil beranda">TUKANGAMBIL</a>
-  <nav class="topnav" aria-label="Navigasi utama"><a href="#download">Unduh</a><a href="#stats">Aktivitas</a></nav>
-  <div class="status-pill" aria-label="Status layanan"><span class="dot" aria-hidden="true"></span> Online</div>
+  <a class="brand" href="/" aria-label="TukangAmbil beranda"><span class="brand-mark" aria-hidden="true">TA</span><span>Tukang<br>Ambil</span></a>
+  <nav class="topnav" aria-label="Navigasi utama"><a href="#download">01 / Unduh</a><a href="#stats">02 / Aktivitas</a></nav>
+  <div class="status-pill" aria-label="Status layanan"><span class="dot" aria-hidden="true"></span> Siap dipakai</div>
 </header>
 
 <main class="shell">
   <section class="split" id="download" aria-label="Pencarian media">
     <div class="hero">
-      <p class="eyebrow">Public media downloader</p>
-      <h1>Simpan yang <em>ingin diingat.</em></h1>
-      <p class="lead">Ambil video, foto, carousel, atau audio dari tautan publik — cepat dan jernih. Tempel satu tautan untuk satu media, atau tautan profil untuk mengambil semuanya.</p>
-      <div class="platforms" aria-label="Platform yang didukung"><span class="platform-label">Platform</span><b>TikTok</b><b>Instagram</b><b>Facebook</b><b>Threads</b><b>X</b></div>
-      <div class="status-line"><span class="dot" aria-hidden="true"></span> Semua sistem beroperasi normal</div>
+      <p class="eyebrow"><span>01</span> Utilitas media publik</p>
+      <h1>Ambil medianya.<br><em>Lewati riuhnya.</em></h1>
+      <p class="lead">Simpan video, foto, carousel, atau audio dari tautan publik. Satu tautan untuk satu media, satu profil untuk seluruh koleksi.</p>
+      <div class="platforms" aria-label="Platform yang didukung"><span class="platform-label">Bekerja dengan</span><b>TikTok</b><b>Instagram</b><b>Facebook</b><b>Threads</b><b>X</b></div>
+      <div class="hero-rule" aria-hidden="true"><span>TA / 2.0</span><i></i><span>PUBLIC ONLY</span></div>
     </div>
 
     <div class="workspace">
       <form id="downloadForm" class="panel" novalidate>
-        <div class="panel-heading"><div><span class="section-kicker">Unduh</span><h2>Tempel tautan publik.</h2></div></div>
-        <label for="mediaUrl">Tautan media publik</label>
+        <div class="panel-heading"><div><span class="section-kicker">Meja kerja / 01</span><h2>Taruh tautan<br>di sini.</h2></div><span class="panel-stamp" aria-hidden="true">URL<br>IN</span></div>
+        <label for="mediaUrl">Tautan media atau profil publik</label>
         <div class="url-row"><div class="input-shell"><input id="mediaUrl" type="url" inputmode="url" placeholder="instagram.com/reel/... atau @username" required><span class="input-check" aria-hidden="true">✓</span></div><button id="pasteBtn" type="button">Tempel</button></div>
-        <div class="modes" role="group" aria-label="Mode unduhan"><button type="button" class="mode active" data-mode="auto" aria-pressed="true"><span class="mode-icon">▶</span><span><b>Video + audio</b><small>Paling lengkap</small></span></button><button type="button" class="mode" data-mode="image" aria-pressed="false"><span class="mode-icon">▧</span><span><b>Gambar</b><small>JPG / PNG</small></span></button><button type="button" class="mode" data-mode="audio" aria-pressed="false"><span class="mode-icon">♫</span><span><b>Audio saja</b><small>MP3 / M4A</small></span></button><button type="button" class="mode" data-mode="profile" aria-pressed="false"><span class="mode-icon">▤</span><span><b>Media Profil</b><small>Semua media dari profil</small></span></button></div>
+        <div class="modes" role="group" aria-label="Mode unduhan"><button type="button" class="mode active" data-mode="auto" aria-pressed="true"><span class="mode-icon">01</span><span><b>Video + audio</b><small>Versi paling lengkap</small></span></button><button type="button" class="mode" data-mode="image" aria-pressed="false"><span class="mode-icon">02</span><span><b>Gambar</b><small>JPG atau PNG</small></span></button><button type="button" class="mode" data-mode="audio" aria-pressed="false"><span class="mode-icon">03</span><span><b>Audio saja</b><small>MP3 atau M4A</small></span></button><button type="button" class="mode" data-mode="profile" aria-pressed="false"><span class="mode-icon">04</span><span><b>Media profil</b><small>Seluruh media publik</small></span></button></div>
         <p class="form-note-tip">Tips: tempel tautan profil (mis. <code>tiktok.com/@username</code>) untuk mengambil semua media publik di profil tersebut.</p>
-        <button class="submit" type="submit"><span>Ambil dan preview</span></button>
+        <button class="submit" type="submit"><span>Ambil dan preview</span><i aria-hidden="true">↘</i></button>
         <div id="scan" class="scan" hidden role="status" aria-live="polite">
           <div class="scan-ring" aria-hidden="true"><div class="scan-ring-core"><strong class="scan-percent" id="scanPercent">12%</strong></div></div>
           <div class="scan-copy">
@@ -51,14 +49,14 @@
   <section id="results" hidden></section>
   <div id="loader" class="loader" hidden role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><b id="loaderText">Memuat media…</b></div>
 
-  <section class="stats" id="stats" aria-label="Statistik penggunaan"><div><small>Permintaan</small><strong id="statTotal">0</strong></div><div><small>Berhasil</small><strong id="statSuccess">0</strong></div><div><small>Gagal</small><strong id="statFailed">0</strong></div><div><small>Rasio sukses</small><strong id="statRate">0%</strong></div></section>
+  <section class="stats reveal-on-scroll" id="stats" aria-label="Statistik penggunaan"><div><small>Permintaan</small><strong id="statTotal">0</strong></div><div><small>Berhasil</small><strong id="statSuccess">0</strong></div><div><small>Gagal</small><strong id="statFailed">0</strong></div><div><small>Rasio sukses</small><strong id="statRate">0%</strong></div></section>
 
-  <section class="platform-stats" id="platformStats" aria-labelledby="platformStatsTitle">
-    <div class="platform-stats-head"><div><span class="section-kicker">Aktivitas lokal</span><h2 id="platformStatsTitle">Platform yang sering digunakan.</h2></div><p>Statistik tersimpan hanya di browser ini.</p></div>
+  <section class="platform-stats reveal-on-scroll" id="platformStats" aria-labelledby="platformStatsTitle">
+    <div class="platform-stats-head"><div><span class="section-kicker">Log perangkat / 02</span><h2 id="platformStatsTitle">Jejak pemakaian lokal.</h2></div><p>Tidak dikirim ke server. Tidak dibagikan.</p></div>
     <div class="platform-rank" id="platformRank"></div>
   </section>
 </main>
-<footer><span>TukangAmbil</span> · Public media utility <i>—</i> URL tidak ditampilkan di log provider · 2026</footer>
+<footer><span>TukangAmbil</span><i>/</i> Utilitas media publik <i>/</i> URL disamarkan dari log provider <i>/</i> 2026</footer>
 <script src="/app.js" defer></script>
 </body>
 </html>

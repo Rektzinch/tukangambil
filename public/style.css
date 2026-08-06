@@ -200,6 +200,8 @@ button:active,.download:active,.preview-btn:active,.nav button:active { transfor
 .preview-btn,.tile .download { min-height:36px; width:100%; font-size:10px; }
 .preview-btn { border:1px solid var(--border); color:var(--text-2); background:var(--bg); }
 .tile .download { margin:0; color:var(--bg); }
+.tile .download.hd { background:var(--accent-dark); color:var(--accent); border:1px solid var(--accent); font-weight:600; }
+.tile .download.hd:hover { background:var(--accent); color:var(--bg); }
 .tile-note { grid-column:1/-1; text-align:center; padding:8px; font:9px var(--mono); color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
 
 /* Sticky download-all for collections on mobile */

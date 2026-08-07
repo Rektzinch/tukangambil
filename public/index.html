@@ -7,6 +7,17 @@
 </head>
 <body>
 <div id="toast" class="toast" hidden role="status" aria-live="polite" aria-atomic="true"></div>
+<dialog id="profileNotice" class="profile-notice" aria-labelledby="profileNoticeTitle" aria-describedby="profileNoticeDescription" aria-modal="true">
+  <div class="modal-box profile-notice-box">
+    <div class="modal-top"><b>Informasi / Media profil</b><button type="button" data-close-profile-notice aria-label="Tutup informasi">×</button></div>
+    <div class="profile-notice-content">
+      <span class="profile-notice-kicker">Harap diperhatikan</span>
+      <h2 id="profileNoticeTitle">Media profil hanya untuk TikTok.</h2>
+      <p id="profileNoticeDescription">Fitur Media Profil saat ini hanya berlaku untuk profil publik TikTok. Untuk Instagram, Facebook, Threads, dan X, gunakan tautan postingan, reel, atau media publik.</p>
+      <button class="profile-notice-action" type="button" data-close-profile-notice>Saya mengerti</button>
+    </div>
+  </div>
+</dialog>
 <header class="topbar shell">
   <a class="brand" href="/" aria-label="TukangAmbil beranda"><span class="brand-mark" aria-hidden="true">TA</span><span>Tukang<br>Ambil</span></a>
   <nav class="topnav" aria-label="Navigasi utama"><a href="#download">01 / Unduh</a><a href="#stats">02 / Aktivitas</a></nav>

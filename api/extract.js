@@ -44,6 +44,15 @@ function providerEndpoints() {
 }
 
 function pickBest(formats, mode) {
+  const isTwitterProgressiveMp4 = format => {
+    try {
+      const parsed = new URL(format.url);
+      const ext = String(format.ext || extensionFromUrl(format.url, "")).toLowerCase();
+      return parsed.protocol === "https:" && parsed.hostname === "video.twimg.com" && ext === "mp4";
+    } catch {
+      return false;
+    }
+  };
   const score = f => {
     const height = Number(f.height) || 0;
     const width = Number(f.width) || 0;
@@ -56,7 +65,7 @@ function pickBest(formats, mode) {
   let candidates = formats.filter(f => f?.url);
   if (mode === "audio") candidates = candidates.filter(f => f.vcodec === "none" && f.acodec && f.acodec !== "none");
   else if (mode === "mute") candidates = candidates.filter(f => f.vcodec && f.vcodec !== "none" && f.acodec === "none");
-  else candidates = candidates.filter(f => f.vcodec && f.vcodec !== "none" && f.acodec && f.acodec !== "none");
+  else candidates = candidates.filter(f => (f.vcodec && f.vcodec !== "none" && f.acodec && f.acodec !== "none") || isTwitterProgressiveMp4(f));
   return candidates.sort((a, b) => score(b) - score(a))[0] || null;
 }
 
@@ -129,7 +138,6 @@ async function requestYtdlp(classified, mode, { limit = PROFILE_LIMIT, offset = 
   };
   const data = await runtimeExtractor()(classified.url, options, { timeout: isProfile ? 42000 : 25000 });
   return normalizeYtdlp(data, classified, mode, { limit, offset });
-  return normalizeYtdlp(data, classified, mode);
 }
 
 async function requestTikwm(classified, mode) {
@@ -398,24 +406,18 @@ async function raceProviders(attempts, mode, { graceMs = 8000 } = {}) {
 function buildAttempts(classified, mode) {
   const attempts = [];
   if (classified.platform === "instagram") {
-    if (classified.kind === "profile" && classified.platform === "instagram") {
+    if (classified.kind === "profile") {
+      attempts.push({ name: "instagram-profile", run: () => requestInstagramProfile(classified) });
       attempts.push({ name: "instagram-direct", run: () => igDirect.requestProfile(classified.handle) });
-      attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
-    } else {
-      attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
     }
-    return attempts;
+    if (fastdl.isEnabled()) attempts.push({ name: "fastdl", run: () => fastdl.requestFastdl(classified) });
+    attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
   }
   if (classified.platform === "facebook") {
     attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
     if (classified.kind !== "profile" && ["auto", "image"].includes(mode)) attempts.push({ name: "getmyfb", run: () => getMyFb.requestGetMyFb(classified, mode) });
     return attempts;
   }
-  if (classified.kind === "profile" && classified.platform === "instagram") {
-    attempts.push({ name: "instagram-profile", run: () => requestInstagramProfile(classified) });
-    attempts.push({ name: "instagram-direct", run: () => igDirect.requestProfile(classified.handle) });
-  }
-  if (fastdl.isEnabled()) attempts.push({ name: "fastdl", run: () => fastdl.requestFastdl(classified) });
   if (classified.platform === "tiktok") {
     attempts.push({ name: "musicaldown", run: () => requestMusicalDown(classified, mode) });
     attempts.push({ name: "tikwm", run: () => requestTikwm(classified, mode) });

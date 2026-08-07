@@ -116,7 +116,7 @@ button { cursor: pointer; }
   transform: rotate(-3deg);
   transition: color .2s, background .2s, transform .2s;
 }
-.brand:hover .brand-mark { color: var(--ink); background: var(--signal); transform: rotate(0); }
+.brand:hover .brand-mark { color: var(--white); background: var(--signal); transform: rotate(0); }
 .topnav { display: none; }
 .status-pill {
   display: flex;
@@ -495,6 +495,7 @@ h1 em { color: var(--signal); font-style: normal; font-weight: 820; }
   grid-template-columns: repeat(2, 1fr);
   margin: 58px 0 14px;
   border: 1px solid var(--ink);
+  color: var(--white);
   background: var(--signal);
   box-shadow: 5px 5px 0 var(--ink);
 }
@@ -539,6 +540,16 @@ h1 em { color: var(--signal); font-style: normal; font-weight: 820; }
 .modal-top button { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid #5b5a52; border-radius: 0; color: var(--paper); background: transparent; font-size: 20px; }
 .modal-content .preview { height: min(65vh, 600px); }
 .hd-loading { display: flex; gap: 10px; align-items: center; justify-content: center; padding: 60px 20px; color: var(--smoke); font: 600 10px/1 var(--mono); }
+.profile-notice { width: min(600px, calc(100% - 24px)); max-width: none; max-height: calc(100vh - 24px); padding: 0; overflow: visible; border: 0; color: var(--ink); background: transparent; }
+.profile-notice::backdrop { background: rgba(23, 23, 19, .82); }
+.profile-notice-box { width: 100%; }
+.profile-notice-content { padding: clamp(24px, 6vw, 42px); }
+.profile-notice-kicker { display: inline-block; padding: 6px 8px; color: var(--white); background: var(--signal); font: 650 8px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.profile-notice-content h2 { max-width: 480px; margin: 18px 0 12px; font-size: clamp(32px, 8vw, 50px); font-stretch: condensed; font-weight: 800; line-height: .9; letter-spacing: -.05em; text-transform: uppercase; }
+.profile-notice-content p { max-width: 500px; margin: 0; color: var(--smoke); font-size: 13px; }
+.profile-notice-action { width: 100%; min-height: 50px; margin-top: 26px; border: 1px solid var(--signal); border-radius: 0; color: var(--white); background: var(--signal); font-weight: 720; text-transform: uppercase; }
+.profile-notice-action:hover { border-color: var(--ink); background: var(--ink); }
+.profile-notice-action:focus-visible, .profile-notice .modal-top button:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
 footer { padding: 25px 16px 30px; color: var(--smoke); font: 500 8px/1.7 var(--mono); text-align: center; text-transform: uppercase; }
 footer span { color: var(--ink); font-weight: 700; }
 footer i { margin: 0 5px; color: var(--signal-deep); font-style: normal; }

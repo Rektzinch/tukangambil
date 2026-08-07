@@ -23,6 +23,7 @@ const formHintText = document.querySelector("#formHintText");
 const loader = document.querySelector("#loader");
 const loaderText = document.querySelector("#loaderText");
 const toast = document.querySelector("#toast");
+const profileNotice = document.querySelector("#profileNotice");
 let mode = "auto";
 let data = null;
 let index = 0;
@@ -79,6 +80,21 @@ function showToast(text, type = "info", duration = 4200) {
   toast.hidden = false;
   toast.dataset.state = type;
   if (duration > 0) toastTimer = setTimeout(dismissToast, duration);
+}
+
+function closeProfileNotice() {
+  if (!profileNotice?.hasAttribute("open")) return;
+  if (typeof profileNotice.close === "function") profileNotice.close();
+  else profileNotice.removeAttribute("open");
+  document.body.style.overflow = "";
+}
+
+function openProfileNotice() {
+  if (!profileNotice || profileNotice.hasAttribute("open")) return;
+  if (typeof profileNotice.showModal === "function") profileNotice.showModal();
+  else profileNotice.setAttribute("open", "");
+  document.body.style.overflow = "hidden";
+  profileNotice.querySelector("button")?.focus();
 }
 
 function showLoader(text) {
@@ -636,5 +652,14 @@ document.addEventListener("keydown", event => {
   if (event.key === "Escape") closeModal();
 });
 
+profileNotice?.querySelectorAll("[data-close-profile-notice]").forEach(button => button.addEventListener("click", closeProfileNotice));
+profileNotice?.addEventListener("click", event => {
+  if (event.target === profileNotice) closeProfileNotice();
+});
+profileNotice?.addEventListener("close", () => {
+  document.body.style.overflow = "";
+});
+
 renderStats();
 observeReveals();
+openProfileNotice();

@@ -11,6 +11,7 @@ const { createRateLimiter } = require("../lib/rate-limit");
 const fastdl = require("../lib/instagram-fastdl");
 const igDirect = require("../lib/instagram-direct");
 const wavy = require("../lib/wavy");
+const getMyFb = require("../lib/facebook-getmyfb");
 
 const TIKWM_URL = "https://www.tikwm.com/api/";
 const MUSICALDOWN_URL = "https://musicaldown.com/id";
@@ -308,6 +309,7 @@ async function probeDownloadable(url) {
     if (host.includes("tiktok")) headers.Referer = "https://www.tiktok.com/";
     else if (host.includes("instagram")) headers.Referer = "https://www.instagram.com/";
     else if (host.includes("fbcdn")) headers.Referer = "https://www.facebook.com/";
+    else if (host.includes("ssscdn")) headers.Referer = "https://getmyfb.com/";
     else if (host.includes("twimg")) headers.Referer = "https://x.com/";
     const response = await fetch(url, { headers, redirect: "follow", signal: AbortSignal.timeout(6000) });
     return response.status === 200 || response.status === 206;
@@ -395,14 +397,18 @@ async function raceProviders(attempts, mode, { graceMs = 8000 } = {}) {
 
 function buildAttempts(classified, mode) {
   const attempts = [];
-  const wavyOnly = ["instagram", "facebook"].includes(classified.platform);
-  if (wavyOnly) {
+  if (classified.platform === "instagram") {
     if (classified.kind === "profile" && classified.platform === "instagram") {
       attempts.push({ name: "instagram-direct", run: () => igDirect.requestProfile(classified.handle) });
       attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
     } else {
       attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
     }
+    return attempts;
+  }
+  if (classified.platform === "facebook") {
+    attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
+    if (classified.kind !== "profile" && ["auto", "image"].includes(mode)) attempts.push({ name: "getmyfb", run: () => getMyFb.requestGetMyFb(classified, mode) });
     return attempts;
   }
   if (classified.kind === "profile" && classified.platform === "instagram") {
@@ -436,9 +442,12 @@ module.exports = async function handler(req, res) {
   if (classified.kind === "profile" && mode !== "auto") return res.status(400).json({ error: "Profil hanya mendukung mode otomatis.", code: "PROFILE_MODE_UNSUPPORTED" });
   try {
     const { result: racedResult, durationMs, failures = [], results: providerResults = [] } = await raceProviders(buildAttempts(classified, mode), mode);
-    let result = classified.platform === "tiktok" ? await verifyTiktokResult(racedResult, providerResults) : racedResult;
+    let result = ["tiktok", "facebook"].includes(classified.platform) ? await verifyTiktokResult(racedResult, providerResults) : racedResult;
     if (result !== racedResult) {
-      result.warnings = [...(result.warnings || []), "Resolusi tertinggi membutuhkan sesi platform; dipakai kualitas publik terbaik yang dapat diunduh."];
+      const warning = classified.platform === "tiktok"
+        ? "Resolusi tertinggi membutuhkan sesi platform; dipakai kualitas publik terbaik yang dapat diunduh."
+        : "Hasil provider utama tidak dapat diunduh; dipakai sumber Facebook publik lainnya.";
+      result.warnings = [...(result.warnings || []), warning];
       result.downloadFallback = true;
     }
     result.durationMs = durationMs;

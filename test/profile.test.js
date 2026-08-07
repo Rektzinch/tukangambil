@@ -2,6 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const profile = require("../api/profile");
+const instagramDirect = require("../lib/instagram-direct");
 
 function callHandler(method, body = {}, addr = "127.0.0.1") {
   return new Promise(resolve => {
@@ -34,6 +35,28 @@ test("profile handler rejects unsupported URL", async () => {
   const r = await callHandler("POST", { url: "https://evil.test/a.mp4" });
   assert.equal(r.status, 400);
   assert.equal(r.body.code, "UNSUPPORTED_URL");
+});
+
+test("Instagram profiles bypass the broken yt-dlp user extractor", async () => {
+  const original = instagramDirect.requestProfile;
+  const calls = [];
+  instagramDirect.requestProfile = async (handle, options) => {
+    calls.push({ handle, options });
+    return {
+      platform: "instagram", provider: "instagram-graphql", resourceKind: "profile", collection: true,
+      partial: false, title: "Koleksi media @gebiann", author: "gebiann",
+      pagination: { offset: options.offset, limit: options.limit, hasMore: false, order: options.order },
+      items: [{ type: "image", url: "https://cdninstagram.com/media.jpg", filename: "media.jpg", quality: "Original" }]
+    };
+  };
+  try {
+    const result = await callHandler("POST", { url: "https://www.instagram.com/gebiann?igsh=share", limit: 24, offset: 0, order: "oldest" }, "192.0.2.41");
+    assert.equal(result.status, 200);
+    assert.deepEqual(calls, [{ handle: "gebiann", options: { limit: 24, offset: 0, order: "oldest" } }]);
+    assert.equal(result.body.pagination.order, "oldest");
+  } finally {
+    instagramDirect.requestProfile = original;
+  }
 });
 
 test("normalizeYtdlp maps entries to items with pagination", () => {

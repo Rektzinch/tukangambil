@@ -7,6 +7,7 @@ const {
   applyDownloadFilenames, attachDownloadTokens
 } = require("../lib/core");
 const { createRateLimiter } = require("../lib/rate-limit");
+const igDirect = require("../lib/instagram-direct");
 const wavy = require("../lib/wavy");
 const { requestTikwm, requestMusicalDown } = require("./extract");
 
@@ -463,7 +464,9 @@ module.exports = async function handler(req, res) {
   try {
     let raw;
     let profileInfo;
-    if (classified.platform === "tiktok" && order === "oldest") {
+    if (classified.platform === "instagram") {
+      raw = await igDirect.requestProfile(classified.handle, { limit, offset, order });
+    } else if (classified.platform === "tiktok" && order === "oldest") {
       profileInfo = await fetchProfileInfo(classified);
       raw = profileInfo
         ? await requestTikTokOldest(classified, { limit, offset }, profileInfo)

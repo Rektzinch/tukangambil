@@ -67,3 +67,20 @@ test("pickImage/pickVideo return best by area", () => {
   const vid = direct.pickVideo(videoItem());
   assert.equal(vid.width, 1080);
 });
+
+test("profile media keeps publication date and supports both chronological orders", () => {
+  const entries = [
+    { pk: "new", media_type: 1, taken_at: 200, image_versions2: { candidates: [{ width: 100, height: 100, url: "https://new.jpg" }] } },
+    { pk: "old", media_type: 1, taken_at: 100, image_versions2: { candidates: [{ width: 100, height: 100, url: "https://old.jpg" }] } }
+  ];
+  const newest = direct.profileEntriesToMedia(entries, "newest");
+  const oldest = direct.profileEntriesToMedia(entries, "oldest");
+  assert.deepEqual(newest.map(item => item.id), ["new", "old"]);
+  assert.deepEqual(oldest.map(item => item.id), ["old", "new"]);
+  assert.equal(oldest[0].publishedAt, "1970-01-01T00:01:40.000Z");
+});
+
+test("builds Instagram timestamp cursors without floating point loss", () => {
+  const cursor = direct.cursorAtTimestamp(1314220021721 + 86_400_000, "313328767");
+  assert.equal(cursor, "724775739588607_313328767");
+});

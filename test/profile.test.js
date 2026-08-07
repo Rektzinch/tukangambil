@@ -3,6 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const profile = require("../api/profile");
 const instagramDirect = require("../lib/instagram-direct");
+const instagramFastdl = require("../lib/instagram-fastdl");
 
 function callHandler(method, body = {}, addr = "127.0.0.1") {
   return new Promise(resolve => {
@@ -39,7 +40,9 @@ test("profile handler rejects unsupported URL", async () => {
 
 test("Instagram profiles bypass the broken yt-dlp user extractor", async () => {
   const original = instagramDirect.requestProfile;
+  const originalFastdl = instagramFastdl.requestFastdl;
   const calls = [];
+  instagramFastdl.requestFastdl = async () => { throw new Error("FastDL unavailable"); };
   instagramDirect.requestProfile = async (handle, options) => {
     calls.push({ handle, options });
     return {
@@ -56,6 +59,7 @@ test("Instagram profiles bypass the broken yt-dlp user extractor", async () => {
     assert.equal(result.body.pagination.order, "oldest");
   } finally {
     instagramDirect.requestProfile = original;
+    instagramFastdl.requestFastdl = originalFastdl;
   }
 });
 

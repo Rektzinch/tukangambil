@@ -8,6 +8,7 @@ const {
 } = require("../lib/core");
 const { createRateLimiter } = require("../lib/rate-limit");
 const igDirect = require("../lib/instagram-direct");
+const fastdl = require("../lib/instagram-fastdl");
 const wavy = require("../lib/wavy");
 const { requestTikwm, requestMusicalDown } = require("./extract");
 
@@ -465,7 +466,15 @@ module.exports = async function handler(req, res) {
     let raw;
     let profileInfo;
     if (classified.platform === "instagram") {
-      raw = await igDirect.requestProfile(classified.handle, { limit, offset, order });
+      if (order === "newest" && offset === 0 && fastdl.isEnabled()) {
+        try {
+          raw = await fastdl.requestFastdl(classified, { limit, offset, order });
+        } catch {
+          raw = await igDirect.requestProfile(classified.handle, { limit, offset, order });
+        }
+      } else {
+        raw = await igDirect.requestProfile(classified.handle, { limit, offset, order });
+      }
     } else if (classified.platform === "tiktok" && order === "oldest") {
       profileInfo = await fetchProfileInfo(classified);
       raw = profileInfo

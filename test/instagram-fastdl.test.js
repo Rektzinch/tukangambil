@@ -81,14 +81,25 @@ test("convertToItems maps savefrom image item", () => {
   assert.equal(items[0].type, "image");
 });
 
-test("isEnabled gates only on api key", (t) => {
-  const orig = { k: process.env.FASTDL_API_KEY };
+test("web requests are signed like the FastDL browser client", () => {
+  const body = fastdl.signWebRequest({ username: "gebiann", maxId: "" }, { now: 1786064383084 });
+  assert.equal(body._ts, 1785411663296);
+  assert.equal(body._tsc, 0);
+  assert.equal(body._sv, 2);
+  assert.match(body._s, /^[0-9a-f]{64}$/);
+  assert.equal(body.username, "gebiann");
+});
+
+test("isEnabled supports the public signed web client", () => {
+  const orig = { k: process.env.FASTDL_API_KEY, s: process.env.FASTDL_WEB_SIGNATURE_SECRET };
   try {
     delete process.env.FASTDL_API_KEY;
-    assert.equal(fastdl.isEnabled(), false);
+    delete process.env.FASTDL_WEB_SIGNATURE_SECRET;
+    assert.equal(fastdl.isEnabled(), true);
     process.env.FASTDL_API_KEY = "x";
     assert.equal(fastdl.isEnabled(), true);
   } finally {
     if (orig.k !== undefined) process.env.FASTDL_API_KEY = orig.k; else delete process.env.FASTDL_API_KEY;
+    if (orig.s !== undefined) process.env.FASTDL_WEB_SIGNATURE_SECRET = orig.s; else delete process.env.FASTDL_WEB_SIGNATURE_SECRET;
   }
 });

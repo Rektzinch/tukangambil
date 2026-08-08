@@ -5,3 +5,5 @@ node_modules
 !.env.example
 *.log
 dist
+opencode.json
+temp_vibepocket_*.jpg

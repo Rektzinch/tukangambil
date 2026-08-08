@@ -50,3 +50,39 @@ test("wavyEndpoint falls back to default", () => {
     if (orig !== undefined) process.env.WAVY_API_URL = orig; else delete process.env.WAVY_API_URL;
   }
 });
+
+test("Threads video posts keep one video instead of repeated Wavy variants", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        success: true,
+        result: {
+          type: "post",
+          title: "Threads video",
+          media: {
+            all: [
+              { type: "video", extension: "mp4", quality: "normal", url: "https://cdn.example/one.mp4" },
+              { type: "video", extension: "mp4", quality: "normal", url: "https://cdn.example/two.mp4" },
+              { type: "video", extension: "mp4", quality: "normal", url: "https://cdn.example/three.mp4" }
+            ],
+            videos: [
+              { type: "video", extension: "mp4", quality: "normal", url: "https://cdn.example/one.mp4" },
+              { type: "video", extension: "mp4", quality: "normal", url: "https://cdn.example/two.mp4" },
+              { type: "video", extension: "mp4", quality: "normal", url: "https://cdn.example/three.mp4" }
+            ],
+            images: []
+          }
+        }
+      })
+    });
+    const result = await wavy.requestWavy({ platform: "threads", kind: "post", handle: "", url: "https://threads.com/post/1" }, "auto");
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].type, "video");
+    assert.equal(result.items[0].url, "https://cdn.example/one.mp4");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

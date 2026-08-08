@@ -24,6 +24,7 @@ const loader = document.querySelector("#loader");
 const loaderText = document.querySelector("#loaderText");
 const toast = document.querySelector("#toast");
 const profileNotice = document.querySelector("#profileNotice");
+const clearBtn = document.querySelector("#clearBtn");
 let mode = "auto";
 let data = null;
 let index = 0;
@@ -186,6 +187,7 @@ function platformFromUrl(value) {
 }
 
 function updateUrlFeedback() {
+  if (clearBtn) clearBtn.disabled = !input.value.trim();
   const platform = platformFromUrl(input.value);
   if (mode === "profile") {
     formHint.classList.add("detected");
@@ -523,6 +525,13 @@ pasteBtn.addEventListener("click", async () => {
   }
 });
 
+clearBtn?.addEventListener("click", () => {
+  input.value = "";
+  updateUrlFeedback();
+  input.focus();
+  show("Tautan dikosongkan.");
+});
+
 input.addEventListener("input", updateUrlFeedback);
 
 form.addEventListener("submit", async event => {
@@ -662,4 +671,5 @@ profileNotice?.addEventListener("close", () => {
 
 renderStats();
 observeReveals();
+updateUrlFeedback();
 openProfileNotice();

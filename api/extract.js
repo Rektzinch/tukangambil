@@ -69,7 +69,7 @@ function pickBest(formats, mode) {
   return candidates.sort((a, b) => score(b) - score(a))[0] || null;
 }
 
-function imageCandidate(entry) {
+function imageCandidate(entry, { allowThumbnail = true } = {}) {
   const originals = [];
   for (const format of Array.isArray(entry?.formats) ? entry.formats : []) {
     const ext = String(format.ext || extensionFromUrl(format.url, "")).toLowerCase();
@@ -80,6 +80,7 @@ function imageCandidate(entry) {
   if (originals.length) {
     return originals.sort((a, b) => ((Number(b.width) || 0) * (Number(b.height) || 0)) - ((Number(a.width) || 0) * (Number(a.height) || 0)))[0];
   }
+  if (!allowThumbnail) return null;
   const candidates = [];
   const thumbnails = Array.isArray(entry?.thumbnails) ? entry.thumbnails.filter(item => item?.url) : [];
   candidates.push(...thumbnails.map(item => ({ ...item, ext: extensionFromUrl(item.url, "jpg") })));
@@ -111,7 +112,7 @@ function normalizeYtdlp(data, classified, mode, { limit = PROFILE_LIMIT, offset 
       continue;
     }
     if (["auto", "image"].includes(mode)) {
-      const image = imageCandidate(entry);
+      const image = imageCandidate(entry, { allowThumbnail: mode === "image" });
       if (!image) continue;
       const ext = image.ext || extensionFromUrl(image.url, "jpg");
       items.push({ type: "image", url: image.url, thumb: image.url, filename: `${safeName(entry.title || `image-${index + 1}`)}.${ext}`, quality: image.width && image.height ? `${image.width}×${image.height}` : "Original", width: image.width || undefined, height: image.height || undefined });
@@ -386,8 +387,9 @@ async function raceProviders(attempts, mode, { graceMs = 8000 } = {}) {
     for (const attempt of attempts) {
       Promise.resolve().then(attempt.run).then(raw => validateResult(raw, { mode })).then(result => {
         const score = resultQuality(result);
+        const priority = Number(typeof attempt.priority === "function" ? attempt.priority(result) : attempt.priority) || 0;
         results.push({ result, provider: attempt.name, score });
-        if (!best || score > best.score) best = { result, provider: attempt.name, durationMs: Date.now() - startedAt, score };
+        if (!best || priority > best.priority || (priority === best.priority && score > best.score)) best = { result, provider: attempt.name, durationMs: Date.now() - startedAt, score, priority };
         pending -= 1;
         if (pending === 0) return finish({ ...best, failures: [...failures], results: [...results] });
         if (!graceTimer) graceTimer = setTimeout(() => { if (best) finish({ ...best, failures: [...failures], results: [...results] }); }, graceMs);
@@ -418,6 +420,7 @@ function buildAttempts(classified, mode) {
     if (classified.kind !== "profile" && ["auto", "image"].includes(mode)) attempts.push({ name: "getmyfb", run: () => getMyFb.requestGetMyFb(classified, mode) });
     return attempts;
   }
+  if (["threads", "x"].includes(classified.platform)) attempts.push({ name: "wavy", priority: result => result.items.some(item => item.type === "video") ? 1 : 0, run: () => wavy.requestWavy(classified, mode) });
   if (classified.platform === "tiktok") {
     attempts.push({ name: "musicaldown", run: () => requestMusicalDown(classified, mode) });
     attempts.push({ name: "tikwm", run: () => requestTikwm(classified, mode) });

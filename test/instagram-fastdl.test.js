@@ -81,6 +81,21 @@ test("convertToItems maps savefrom image item", () => {
   assert.equal(items[0].type, "image");
 });
 
+test("convertToItems prefers a video variant over its poster frame", () => {
+  const content = [{
+    url: [
+      { url: "https://dl/frame.jpg", type: "image/jpeg" },
+      { url: "https://dl/video", type: "video/mp4" }
+    ],
+    thumb: "https://dl/frame.jpg",
+    meta: { title: "Reel" }
+  }];
+  const items = fastdl.convertToItems(content, cfg());
+  assert.equal(items.length, 1);
+  assert.equal(items[0].type, "video");
+  assert.equal(items[0].url, "https://dl/video");
+});
+
 test("web requests are signed like the FastDL browser client", () => {
   const body = fastdl.signWebRequest({ username: "gebiann", maxId: "" }, { now: 1786064383084 });
   assert.equal(body._ts, 1785411663296);

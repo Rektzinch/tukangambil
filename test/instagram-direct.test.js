@@ -84,3 +84,20 @@ test("builds Instagram timestamp cursors without floating point loss", () => {
   const cursor = direct.cursorAtTimestamp(1314220021721 + 86_400_000, "313328767");
   assert.equal(cursor, "724775739588607_313328767");
 });
+
+test("webNodeToMedia maps public web profile images, videos, and carousel children", () => {
+  const node = {
+    __typename: "GraphSidecar", id: "parent", shortcode: "PARENT", taken_at_timestamp: 1700000000,
+    edge_media_to_caption: { edges: [{ node: { text: "Public post" } }] },
+    edge_sidecar_to_children: { edges: [
+      { node: { __typename: "GraphImage", id: "photo", shortcode: "PHOTO", display_url: "https://cdninstagram.com/photo.jpg", thumbnail_src: "https://cdninstagram.com/thumb.jpg", dimensions: { width: 1080, height: 1350 } } },
+      { node: { __typename: "GraphVideo", id: "video", shortcode: "VIDEO", is_video: true, video_url: "https://cdninstagram.com/video.mp4", display_url: "https://cdninstagram.com/video.jpg", dimensions: { width: 1080, height: 1920 } } }
+    ] }
+  };
+  const out = direct.webNodeToMedia(node);
+  assert.equal(out.length, 2);
+  assert.deepEqual(out.map(item => item.type), ["image", "video"]);
+  assert.equal(out[0].filename, "Public post.jpg");
+  assert.equal(out[1].url, "https://cdninstagram.com/video.mp4");
+  assert.equal(out[0].publishedAt, "2023-11-14T22:13:20.000Z");
+});

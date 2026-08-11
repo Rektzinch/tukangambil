@@ -174,6 +174,17 @@ function show(text, type = "info") {
   showToast(text, type);
 }
 
+function explainMediaError(error) {
+  const source = String(error?.message || "").toLowerCase();
+  if (error?.name === "AbortError") return "Pemeriksaan sumber terlalu lama. Coba ulang atau gunakan tautan postingan yang lebih baru.";
+  if (error?.status === 429) return "Batas permintaan sementara tercapai. Tunggu sebentar lalu coba kembali.";
+  if (error?.status === 401) return "Sesi unduhan tidak lagi valid. Analisis ulang tautan ini, lalu unduh dari hasil terbaru.";
+  if (error?.status === 502 || /upstream|provider|media belum dapat|tidak dapat diunduh/.test(source)) return "Sumber media sedang menolak akses, tautannya telah kedaluwarsa, atau formatnya berubah. Coba ulang, pilih kualitas lain, atau gunakan tautan postingan asli.";
+  if (/host media tidak diizinkan|url media tidak diizinkan/.test(source)) return "CDN media ini belum didukung oleh proxy aman kami. Gunakan tautan postingan asli agar sumber lain dapat dicoba.";
+  if (/tidak ada media|tidak menemukan/.test(source)) return "Tidak ada media publik yang dapat diambil dari tautan ini. Pastikan postingan bersifat publik dan masih aktif.";
+  return error?.message || "Ekstraksi gagal. Periksa tautan dan coba lagi.";
+}
+
 function platformFromUrl(value) {
   try {
     const host = new URL(normalizeUrl(value)).hostname.replace(/^www\./, "").toLowerCase();
@@ -571,7 +582,7 @@ form.addEventListener("submit", async event => {
     results.scrollIntoView({ behavior: "smooth" });
   } catch (error) {
     bump("failed");
-    show(error.name === "AbortError" ? "Permintaan terlalu lama. Coba lagi." : error.message || "Ekstraksi gagal.", "error");
+    show(explainMediaError(error), "error");
   } finally {
     clearTimeout(requestTimeout);
     extractController = null;
@@ -606,7 +617,7 @@ async function loadMoreProfile() {
     render();
     show(`${data.items.length} media ditampilkan.`, "success");
   } catch (error) {
-    show(error.message || "Gagal memuat media berikutnya.", "error");
+    show(explainMediaError(error), "error");
   } finally {
     profileLoading = false;
     hideLoader();
@@ -649,7 +660,7 @@ async function reloadProfileOrder(nextOrder, controls) {
     const count = formatCount(data?.profile?.mediaCount);
     const detail = error.status === 502 && attemptedOrder === "oldest" && count !== "0"
       ? `Profil ini memiliki sekitar ${count} media. Urutan terlama perlu membaca seluruh timeline dan melewati batas waktu server.`
-      : error.message || "Gagal mengubah urutan media.";
+      : explainMediaError(error);
     show(detail, "error");
   } finally {
     profileLoading = false;

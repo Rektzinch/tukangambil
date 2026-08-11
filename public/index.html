@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#201d1d">
+  <meta name="theme-color" content="#f4f4f4">
   <meta name="description" content="Unduh media publik TikTok, Instagram, Facebook, Threads, dan X dari satu tautan.">
   <title>TukangAmbil — Unduh media publik</title>
-  <link rel="stylesheet" href="/style.css?v=20260811-needmcp">
+  <link rel="stylesheet" href="/style.css?v=20260812-technical-desk">
 </head>
 <body>
 <div id="toast" class="toast" hidden role="status" aria-live="polite" aria-atomic="true"></div>
@@ -24,17 +24,17 @@
 </dialog>
 
 <header class="topbar shell">
-  <a class="brand" href="/" aria-label="TukangAmbil beranda"><span class="brand-mark" aria-hidden="true">↙</span><span>TukangAmbil<small>Public media utility</small></span></a>
-  <nav class="topnav" aria-label="Navigasi utama"><a href="#download" aria-current="page">Unduh</a><a href="#stats">Aktivitas</a><a href="#help">Bantuan</a></nav>
-  <div class="status-pill" aria-label="Status layanan"><span class="dot" aria-hidden="true"></span> Sistem siap</div>
+  <a class="brand" href="/" aria-label="TukangAmbil beranda"><span class="brand-mark" aria-hidden="true">↙</span><span>TukangAmbil<small>Public media desk</small></span></a>
+  <nav class="topnav" aria-label="Navigasi utama"><a href="#download" aria-current="page">01 / Ambil</a><a href="#stats">02 / Aktivitas</a><a href="#help">03 / Bantuan</a></nav>
+  <div class="status-pill" aria-label="Status layanan"><span class="dot" aria-hidden="true"></span> STATUS: SIAP</div>
 </header>
 
 <main class="shell">
   <section class="split" id="download" aria-label="Unduh media publik">
     <div class="hero">
-      <p class="eyebrow"><span aria-hidden="true">●</span> Alat unduh media publik</p>
-      <h1>Unduh yang <em>publik.</em><br>Tanpa jalan memutar.</h1>
-      <p class="lead">Tempel satu tautan untuk mengambil video, foto, carousel, atau audio dari media sosial yang kamu gunakan sehari-hari.</p>
+      <p class="eyebrow"><span aria-hidden="true">//</span> 01 — Link intake protocol</p>
+      <h1>Ambil yang <em>publik.</em><br>Simpan yang perlu.</h1>
+      <p class="lead">Satu meja kerja untuk memeriksa video, gambar, audio, atau koleksi publik sebelum Anda mengunduhnya.</p>
       <div class="platforms" aria-label="Platform yang didukung"><span class="platform-label">Platform yang tersedia</span><b>TikTok</b><b>Instagram</b><b>Facebook</b><b>Threads</b><b>X</b></div>
       <div class="assurances" aria-label="Keunggulan layanan">
         <div><span aria-hidden="true">⌁</span><p><b>Kualitas asli</b><small>Format terbaik yang tersedia dari sumber.</small></p></div>
@@ -44,7 +44,7 @@
 
     <div class="workspace">
       <form id="downloadForm" class="panel" novalidate>
-        <div class="panel-heading"><div><span class="section-kicker">Mulai di sini</span><h2>Masukkan tautan</h2></div><span class="panel-stamp" aria-hidden="true">↙</span></div>
+        <div class="panel-heading">        <div><span class="section-kicker">INPUT / PUBLIC URL</span><h2>Mulai dari tautan.</h2></div><span class="panel-stamp" aria-hidden="true">↙</span></div>
         <label for="mediaUrl">Tautan media atau profil publik</label>
         <div class="url-row"><div class="input-shell"><span class="url-icon" aria-hidden="true">↗</span><input id="mediaUrl" type="url" inputmode="url" placeholder="instagram.com/reel/... atau @username" required><span class="input-check" aria-hidden="true">✓</span></div><button id="pasteBtn" type="button">Tempel</button><button id="clearBtn" class="clear-url" type="button" aria-label="Bersihkan tautan" title="Bersihkan tautan">Hapus</button></div>
         <div class="modes" role="group" aria-label="Mode unduhan">
@@ -53,8 +53,8 @@
           <button type="button" class="mode" data-mode="audio" aria-pressed="false"><span class="mode-icon">03</span><span><b>Audio saja</b><small>MP3 atau M4A</small></span></button>
           <button type="button" class="mode" data-mode="profile" aria-pressed="false"><span class="mode-icon">04</span><span><b>Media profil</b><small>Koleksi publik lintas platform</small></span></button>
         </div>
-        <p class="form-note-tip">Tips: gunakan tautan profil, misalnya <code>tiktok.com/@username</code> atau <code>instagram.com/username</code>, untuk mengambil media publiknya.</p>
-        <button class="submit" type="submit"><span>Ambil &amp; tampilkan preview</span><i aria-hidden="true">↗</i></button>
+        <p class="form-note-tip">Hanya tautan publik aktif yang dapat diproses. Jika sumber berubah atau kedaluwarsa, kami akan menampilkan langkah berikutnya.</p>
+        <button class="submit" type="submit"><span>ANALISIS MEDIA</span><i aria-hidden="true">→</i></button>
         <div id="scan" class="scan" hidden role="status" aria-live="polite">
           <div class="scan-ring" aria-hidden="true"><div class="scan-ring-core"><strong class="scan-percent" id="scanPercent">12%</strong></div></div>
           <div class="scan-copy"><b id="scanLabel">Memvalidasi tautan</b><small id="scanSubLabel">Mesin sedang menyiapkan media terbaik</small><div class="scan-steps" aria-hidden="true"><span class="active" data-step="0">Validasi</span><i></i><span data-step="1">Provider</span><i></i><span data-step="2">Kualitas</span><i></i><span data-step="3">Preview</span></div></div>
@@ -68,9 +68,9 @@
   </section>
 
   <section class="process-cards" aria-label="Cara kerja singkat">
-    <article><span>01</span><div><h2>Tempel tautan</h2><p>Masukkan URL media atau profil publik.</p></div></article>
-    <article><span>02</span><div><h2>Pilih format</h2><p>Tentukan video, gambar, audio, atau profil.</p></div></article>
-    <article><span>03</span><div><h2>Preview &amp; unduh</h2><p>Periksa hasilnya sebelum menyimpan file.</p></div></article>
+    <article><span>01</span><div><h2>Tempel tautan</h2><p>Masukkan URL media atau profil publik yang masih aktif.</p></div></article>
+    <article><span>02</span><div><h2>Periksa sumber</h2><p>Kami validasi format, kualitas, dan ketersediaan media.</p></div></article>
+    <article><span>03</span><div><h2>Simpan hasil</h2><p>Unduh setelah status media menyatakan siap.</p></div></article>
   </section>
 
   <section id="results" hidden></section>

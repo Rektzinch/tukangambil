@@ -19,7 +19,7 @@ function createResponse() {
   };
 }
 
-test("production download rejects a forged same-origin Referer without a signed token", async (t) => {
+test("download rejects a forged same-origin Referer without browser fetch metadata or a signed token", async (t) => {
   const originalEnv = process.env.NODE_ENV;
   const originalSecret = process.env.DOWNLOAD_TOKEN_SECRET;
   const originalFetch = globalThis.fetch;
@@ -44,6 +44,27 @@ test("production download rejects a forged same-origin Referer without a signed 
 
   assert.equal(response.statusCode, 401);
   assert.equal(calls, 0);
+});
+
+test("same-origin browser requests may use the safe raw URL fallback when no signing secret exists", async (t) => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return { ok: false, status: 500, url: "https://video.twimg.com/private.mp4", body: null, headers: { get: () => null } };
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const response = createResponse();
+  await download({
+    method: "GET",
+    headers: { host: "app.example", origin: "https://app.example", "sec-fetch-site": "same-origin" },
+    query: { url: "https://video.twimg.com/private.mp4", filename: "private.mp4" },
+    socket: { remoteAddress: "198.51.100.5" }
+  }, response);
+
+  assert.equal(calls, 1);
+  assert.equal(response.statusCode, 502);
 });
 
 test("rate limiter ignores spoofed CF-Connecting-IP without a trusted Cloudflare marker", async () => {

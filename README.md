@@ -39,7 +39,7 @@ Script build menyalin aset dari `public/` ke `dist/`, sedangkan Vercel membangun
 - `YTDLP_COOKIES_B64`: cookie Netscape yang di-encode Base64 untuk media yang memerlukan sesi. Jangan gunakan cookie akun utama.
 - `YTDLP_BINARY_URL` / `YTDLP_BINARY_SHA256`: saat `YTDLP_BINARY_URL` diisi (pin versi), `YTDLP_BINARY_SHA256` **wajib** diisi; bila tidak, install berhenti dengan error. Tanpa keduanya, binary `latest` dipakai dengan peringatan.
 - Contoh lengkap tersedia di `.env.example`.
-- `DOWNLOAD_TOKEN_SECRET`: **wajib di produksi**. Secret acak berentropi tinggi untuk signed download token; tanpa token yang valid, endpoint unduhan menolak permintaan di produksi.
+- `DOWNLOAD_TOKEN_SECRET`: secret acak opsional untuk signed download token berumur 15 menit. Tanpa secret, unduhan browser yang benar-benar same-origin tetap didukung; request lintas-origin atau tanpa metadata browser yang sesuai ditolak.
 - `MAX_DOWNLOAD_BYTES`: batas ukuran unduhan; default 1 GiB.
 - `PUBLIC_ORIGIN`: origin produksi opsional.
 - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`: backend rate limit persisten opsional (Upstash Redis REST). Saat keduanya diisi, rate limit ditegakkan lintas instance serverless; tanpa ini, smoothing/rate limit hanya berlaku per-instance (best-effort).
@@ -63,7 +63,7 @@ Proses instalasi mengunduh binary yt-dlp Linux. Untuk build yang sepenuhnya repr
 - Rate limit per IP pada endpoint `/api/extract` dan `/api/profile` (20/menit) serta `/api/download` (40/menit) dengan jendela 60 detik. Penegakan bersifat **best-effort per instance** di deployment serverless kecuali `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` diisi, yang menegakkannya secara persisten antar instance. Jendela `Retry-After` disesuaikan dengan sisa waktu.
 - Deteksi IP: `CF-Connecting-IP` hanya saat ada penanda Cloudflare; `X-Forwarded-For` nilai paling kanan hanya saat ada penanda proxy tepercaya (Vercel/Cloudflare); selain itu memakai `socket.remoteAddress`. Header forwarding dari koneksi langsung tidak dipercaya untuk mencegah spoofing.
 - Download dan probe media hanya dari daftar host yang diizinkan, dengan redirect divalidasi per-hop, batas ukuran streaming, dan `nosniff`.
-- Di produksi, unduhan selalu memakai token HMAC bertanda tangan dengan masa berlaku 15 menit; token juga direkomendasikan di semua environment lain.
+- Saat `DOWNLOAD_TOKEN_SECRET` diisi, unduhan memakai token HMAC bertanda tangan dengan masa berlaku 15 menit. Tanpa secret, fallback hanya menerima request browser same-origin yang menyertakan metadata fetch dan origin/referrer yang cocok; header `Referer` saja tidak cukup.
 - Header keamanan diterapkan global: CSP, HSTS, `X-Frame-Options: DENY`, COOP/CORP, dan lainnya.
 - Health endpoint hanya memaparkan kesiapan runtime, bukan konfigurasi rahasia.
 

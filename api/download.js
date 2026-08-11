@@ -6,8 +6,22 @@ const { allowedMediaUrl, fetchAllowedMedia, mediaRequestHeaders } = require("../
 const MAX_BYTES = Math.max(5 * 1024 * 1024, Number(process.env.MAX_DOWNLOAD_BYTES) || 1024 * 1024 * 1024);
 const rateLimit = createRateLimiter({ max: 40 });
 
-function downloadsRequireToken() {
-  return process.env.NODE_ENV === "production" || Boolean(String(process.env.DOWNLOAD_TOKEN_SECRET || "").trim());
+function sameOriginBrowserRequest(req) {
+  const host = String(req?.headers?.host || "").trim().toLowerCase();
+  const origin = String(req?.headers?.origin || "").trim();
+  const referer = String(req?.headers?.referer || "").trim();
+  const fetchSite = String(req?.headers?.["sec-fetch-site"] || "").trim().toLowerCase();
+  if (!host || fetchSite !== "same-origin") return false;
+
+  const matchesHost = value => {
+    try {
+      const parsed = new URL(value);
+      return ["http:", "https:"].includes(parsed.protocol) && parsed.host.toLowerCase() === host;
+    } catch {
+      return false;
+    }
+  };
+  return matchesHost(origin || referer);
 }
 
 function isDownloadable(filename, type) {
@@ -35,12 +49,10 @@ module.exports = async function handler(req, res) {
   }
 
   const tokenData = verifyDownloadToken(req.query?.token);
-  const hasValidToken = Boolean(tokenData);
-  if (downloadsRequireToken() && !hasValidToken) {
-    return res.status(401).json({ error: "Token unduhan tidak valid atau sudah kedaluwarsa." });
+  const rawUrl = tokenData?.url || (sameOriginBrowserRequest(req) ? String(req.query?.url || "") : "");
+  if (!rawUrl) {
+    return res.status(401).json({ error: "Token unduhan tidak valid atau permintaan browser bukan same-origin." });
   }
-
-  const rawUrl = tokenData?.url || String(req.query?.url || "");
   const filename = safeFilename(tokenData?.filename || req.query?.filename || "media");
   if (!rawUrl || !allowedMediaUrl(rawUrl)) {
     return res.status(400).json({ error: "URL media tidak diizinkan atau token tidak valid." });
@@ -89,4 +101,4 @@ module.exports = async function handler(req, res) {
 module.exports.allowedMediaUrl = allowedMediaUrl;
 module.exports.fetchAllowed = fetchAllowed;
 module.exports.isDownloadable = isDownloadable;
-module.exports.downloadsRequireToken = downloadsRequireToken;
+module.exports.sameOriginBrowserRequest = sameOriginBrowserRequest;

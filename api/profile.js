@@ -514,7 +514,12 @@ module.exports = async function handler(req, res) {
   } catch (error) {
     console.warn("profile_failed", { platform: classified.platform, handle: classified.handle, code: error.code || "FAILED" });
     const status = error.code === "GLOBAL_TIMEOUT" ? 504 : 502;
-    return res.status(status).json({ error: error.message, code: error.code || "PROFILE_EXTRACT_FAILED" });
+    const instagramProfileRestricted = classified.platform === "instagram";
+    const errorCode = instagramProfileRestricted ? "INSTAGRAM_PROFILE_RESTRICTED" : error.code || "PROFILE_EXTRACT_FAILED";
+    const message = instagramProfileRestricted
+      ? "Profil Instagram sementara menolak akses otomatis dari server ini."
+      : error.message;
+    return res.status(status).json({ error: message, code: errorCode });
   }
 };
 

@@ -385,6 +385,22 @@ async function readApiResponse(response) {
   return body;
 }
 
+function trustedInstagramProfileUrl(value) {
+  try {
+    const parsed = new URL(normalizeUrl(value));
+    const host = parsed.hostname.toLowerCase();
+    if (parsed.protocol === "https:" && (host === "instagram.com" || host.endsWith(".instagram.com"))) return parsed.toString();
+  } catch {}
+  return "https://www.instagram.com/";
+}
+
+function renderInstagramProfileFallback(url) {
+  const sourceUrl = trustedInstagramProfileUrl(url);
+  results.innerHTML = `<div class="results-title"><span>Instagram · akses profil</span><b>JALUR AMAN</b></div><section class="collection profile-fallback"><div class="profile-fallback-copy"><span class="profile-fallback-kicker">AKSES SERVER DIBATASI</span><h2>Profil publik masih tersedia melalui tautan asli.</h2><p>Instagram menolak permintaan otomatis dari server saat ini. Untuk menjaga keamanan, TukangAmbil tidak memakai cookie, signature, atau secret pihak ketiga untuk memaksakan akses.</p><div class="profile-fallback-actions"><a class="profile-fallback-link primary" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">Buka profil Instagram <span aria-hidden="true">↗</span></a><a class="profile-fallback-link" href="https://anonyig.com/en/instagram-profile-viewer/" target="_blank" rel="noopener noreferrer">Buka viewer publik <span aria-hidden="true">↗</span></a></div><p class="profile-fallback-note">Masukkan username atau URL profil yang sama pada viewer publik. Hanya gunakan untuk konten yang memang bersifat publik.</p></div></section>`;
+  results.hidden = false;
+  results.scrollIntoView({ behavior: "smooth" });
+}
+
 function closeModal() {
   const modal = document.querySelector(".modal");
   if (modal) modal.hidden = true;
@@ -582,7 +598,12 @@ form.addEventListener("submit", async event => {
     results.scrollIntoView({ behavior: "smooth" });
   } catch (error) {
     bump("failed");
-    show(explainMediaError(error), "error");
+    if (profile && error.code === "INSTAGRAM_PROFILE_RESTRICTED") {
+      renderInstagramProfileFallback(url);
+      show("Profil Instagram memblokir akses otomatis. Gunakan salah satu jalur aman yang tersedia.", "error");
+    } else {
+      show(explainMediaError(error), "error");
+    }
   } finally {
     clearTimeout(requestTimeout);
     extractController = null;

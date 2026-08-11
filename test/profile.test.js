@@ -63,6 +63,24 @@ test("Instagram profiles bypass the broken yt-dlp user extractor", async () => {
   }
 });
 
+test("Instagram profile blocks return a safe fallback code", async () => {
+  const original = instagramDirect.requestProfile;
+  const originalEnabled = instagramFastdl.isEnabled;
+  instagramFastdl.isEnabled = () => false;
+  instagramDirect.requestProfile = async () => {
+    throw Object.assign(new Error("Instagram HTTP 429"), { code: "INSTAGRAM_BLOCKED" });
+  };
+  try {
+    const result = await callHandler("POST", { url: "https://www.instagram.com/gebiann/" }, "192.0.2.41");
+    assert.equal(result.status, 502);
+    assert.equal(result.body.code, "INSTAGRAM_PROFILE_RESTRICTED");
+    assert.equal(result.body.error, "Profil Instagram sementara menolak akses otomatis dari server ini.");
+  } finally {
+    instagramDirect.requestProfile = original;
+    instagramFastdl.isEnabled = originalEnabled;
+  }
+});
+
 test("normalizeYtdlp maps entries to items with pagination", () => {
   const data = {
     title: "demo",

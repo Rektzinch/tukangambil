@@ -34,9 +34,9 @@ test("rate limiter ignores spoofable x-forwarded-for without a trusted proxy", (
   assert.equal(limiter.clientIp(req), "10.0.0.1");
 });
 
-test("rate limiter prefers cf-connecting-ip from Cloudflare", () => {
+test("rate limiter prefers cf-connecting-ip only from a marked Cloudflare proxy", () => {
   const limiter = createRateLimiter({ max: 1 });
-  const req = { headers: { "cf-connecting-ip": "8.8.8.8" }, socket: { remoteAddress: "10.0.0.1" } };
+  const req = { headers: { "cf-ray": "abc-SIN", "cf-connecting-ip": "8.8.8.8" }, socket: { remoteAddress: "10.0.0.1" } };
   assert.equal(limiter.clientIp(req), "8.8.8.8");
 });
 

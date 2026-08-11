@@ -168,7 +168,7 @@ test("finalizeProfileResult keeps all items and marks unavailable ones", () => {
     partial: true,
     pagination: { offset: 0, limit: 10, hasMore: true },
     items: [
-      { id: "111", type: "video", url: "https://v1.mp4", thumb: null, filename: "v1.mp4", mime: "video/mp4", hasAudio: true },
+      { id: "111", type: "video", url: "https://video.twimg.com/v1.mp4", thumb: null, filename: "v1.mp4", mime: "video/mp4", hasAudio: true },
       { id: "222", type: "video", url: "", thumb: null, filename: "v2.mp4", mime: "video/mp4", hasAudio: true, _sourceUrl: "https://www.tiktok.com/@demo/video/222" }
     ]
   };

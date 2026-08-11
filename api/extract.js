@@ -8,6 +8,7 @@ const {
   sanitizeProviderError
 } = require("../lib/core");
 const { createRateLimiter } = require("../lib/rate-limit");
+const { allowedMediaUrl, fetchAllowedMedia, mediaRequestHeaders } = require("../lib/media-policy");
 const fastdl = require("../lib/instagram-fastdl");
 const igDirect = require("../lib/instagram-direct");
 const wavy = require("../lib/wavy");
@@ -92,7 +93,9 @@ function imageCandidate(entry, { allowThumbnail = true } = {}) {
 
 function normalizeYtdlp(data, classified, mode, { limit = PROFILE_LIMIT, offset = 0 } = {}) {
   const all = (Array.isArray(data?.entries) ? data.entries : [data]).filter(Boolean);
-  const entries = all.slice(offset, offset + limit);
+  // Profile pages are already constrained by yt-dlp playlistStart/playlistEnd.
+  // Applying offset again here would empty every page after the first.
+  const entries = classified.kind === "profile" ? all.slice(0, limit) : all.slice(offset, offset + limit);
   const items = [];
   for (const [index, entry] of entries.entries()) {
     const formats = Array.isArray(entry.formats) ? entry.formats : [];
@@ -312,15 +315,12 @@ async function requestCobalt(classified, mode, endpoint) {
 }
 
 async function probeDownloadable(url) {
+  if (!allowedMediaUrl(url)) return false;
   try {
-    const headers = { "User-Agent": "Mozilla/5.0 Chrome/127", "Accept-Encoding": "identity", Range: "bytes=0-0" };
-    const host = new URL(url).hostname.toLowerCase();
-    if (host.includes("tiktok")) headers.Referer = "https://www.tiktok.com/";
-    else if (host.includes("instagram")) headers.Referer = "https://www.instagram.com/";
-    else if (host.includes("fbcdn")) headers.Referer = "https://www.facebook.com/";
-    else if (host.includes("ssscdn")) headers.Referer = "https://getmyfb.com/";
-    else if (host.includes("twimg")) headers.Referer = "https://x.com/";
-    const response = await fetch(url, { headers, redirect: "follow", signal: AbortSignal.timeout(6000) });
+    const response = await fetchAllowedMedia(url, {
+      headers: mediaRequestHeaders(url, "bytes=0-0"),
+      timeoutMs: 6000
+    });
     return response.status === 200 || response.status === 206;
   } catch {
     return false;
@@ -420,7 +420,7 @@ function buildAttempts(classified, mode) {
     if (classified.kind !== "profile" && ["auto", "image"].includes(mode)) attempts.push({ name: "getmyfb", run: () => getMyFb.requestGetMyFb(classified, mode) });
     return attempts;
   }
-  if (["threads", "x"].includes(classified.platform)) attempts.push({ name: "wavy", priority: result => result.items.some(item => item.type === "video") ? 1 : 0, run: () => wavy.requestWavy(classified, mode) });
+  if (["threads", "x"].includes(classified.platform)) attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
   if (classified.platform === "tiktok") {
     attempts.push({ name: "musicaldown", run: () => requestMusicalDown(classified, mode) });
     attempts.push({ name: "tikwm", run: () => requestTikwm(classified, mode) });

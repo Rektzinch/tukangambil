@@ -192,7 +192,7 @@ function updateUrlFeedback() {
   if (mode === "profile") {
     formHint.classList.add("detected");
     formHintIcon.textContent = "✓";
-    formHintText.textContent = "Mode Media Profil aktif. Masukkan tautan profil untuk mengambil semua media.";
+    formHintText.textContent = "Mode Media Profil aktif. Masukkan tautan profil publik TikTok, Instagram, Facebook, Threads, atau X.";
   } else if (platform) {
     formHint.classList.add("detected");
     formHintIcon.textContent = "✓";
@@ -470,10 +470,10 @@ async function downloadAll() {
 }
 
 function render() {
-  const isCollection = data.items.length > 2;
+  const profile = data.profile;
+  const isProfileCollection = data.resourceKind === "profile" || Boolean(profile);
+  const isCollection = isProfileCollection || Boolean(data.collection) || data.items.length > 2;
   if (isCollection) {
-    const profile = data.profile;
-    const isProfileCollection = data.resourceKind === "profile" || Boolean(profile);
     const collectionWarnings = data.warnings?.length ? `<div class="message show">${data.warnings.map(escapeHtml).join(" · ")}</div>` : "";
     const loadMore = profileHasMore ? `<button class="load-more" type="button">Muat lebih banyak</button>` : "";
     const orderControl = isProfileCollection ? `<div class="order-control" role="group" aria-label="Urutkan media"><span>Urutkan media</span><div class="order-options"><button type="button" data-order="newest" aria-pressed="${profileOrder === "newest"}">Terbaru</button><button type="button" data-order="oldest" aria-pressed="${profileOrder === "oldest"}">Terlama</button></div></div>` : "";

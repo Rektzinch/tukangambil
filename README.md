@@ -39,12 +39,13 @@ Script build menyalin aset dari `public/` ke `dist/`, sedangkan Vercel membangun
 - `YTDLP_COOKIES_B64`: cookie Netscape yang di-encode Base64 untuk media yang memerlukan sesi. Jangan gunakan cookie akun utama.
 - `YTDLP_BINARY_URL` / `YTDLP_BINARY_SHA256`: saat `YTDLP_BINARY_URL` diisi (pin versi), `YTDLP_BINARY_SHA256` **wajib** diisi; bila tidak, install berhenti dengan error. Tanpa keduanya, binary `latest` dipakai dengan peringatan.
 - Contoh lengkap tersedia di `.env.example`.
-- `DOWNLOAD_TOKEN_SECRET`: secret acak untuk signed download token. Bila tidak tersedia, proxy hanya menerima permintaan same-origin.
+- `DOWNLOAD_TOKEN_SECRET`: **wajib di produksi**. Secret acak berentropi tinggi untuk signed download token; tanpa token yang valid, endpoint unduhan menolak permintaan di produksi.
 - `MAX_DOWNLOAD_BYTES`: batas ukuran unduhan; default 1 GiB.
 - `PUBLIC_ORIGIN`: origin produksi opsional.
 - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`: backend rate limit persisten opsional (Upstash Redis REST). Saat keduanya diisi, rate limit ditegakkan lintas instance serverless; tanpa ini, smoothing/rate limit hanya berlaku per-instance (best-effort).
 - `FASTDL_API_URL` / `FASTDL_API_KEY`: provider Instagram via backend fastdl milik sendiri (`api-wh.fastdl.app`). Saat `FASTDL_API_KEY` diisi, permintaan post/reel/story/profil Instagram ikut dilayani oleh worker hub fastdl sebagai provider tambahan dalam race. Backend harus menerima header API-key (`FASTDL_API_KEY_HEADER`, default `x-api-key`).
 - `FASTDL_MEDIA_URL`: origin proxy media fastdl (default `https://media.fastdl.app`) untuk URL download bertanda tangan.
+- `FASTDL_WEB_SIGNATURE_SECRET` dan `FASTDL_WEB_SIGNATURE_TIMESTAMP`: alternatif operator-managed untuk signing request FastDL bila tidak memakai `FASTDL_API_KEY`; keduanya wajib diisi bersama dan tidak boleh di-commit.
 
 ## Pengembangan
 
@@ -60,9 +61,9 @@ Proses instalasi mengunduh binary yt-dlp Linux. Untuk build yang sepenuhnya repr
 ## Perlindungan
 
 - Rate limit per IP pada endpoint `/api/extract` dan `/api/profile` (20/menit) serta `/api/download` (40/menit) dengan jendela 60 detik. Penegakan bersifat **best-effort per instance** di deployment serverless kecuali `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` diisi, yang menegakkannya secara persisten antar instance. Jendela `Retry-After` disesuaikan dengan sisa waktu.
-- Deteksi IP: `CF-Connecting-IP` (Cloudflare), lalu `X-Forwarded-For` nilai paling kanan **hanya saat ada penanda proxy tepercaya** (Vercel/Cloudflare), lalu `socket.remoteAddress`. Header `X-Forwarded-For` dari koneksi langsung tidak dipercaya untuk mencegah spoofing.
-- Download media hanya dari daftar host yang diizinkan, dengan redirect divalidasi per-hop, batas ukuran streaming, dan `nosniff`.
-- Saat `DOWNLOAD_TOKEN_SECRET` diisi, unduhan memakai token HMAC bertanda tangan dengan masa berlaku 15 menit; tanpa secret, download dibatasi same-origin.
+- Deteksi IP: `CF-Connecting-IP` hanya saat ada penanda Cloudflare; `X-Forwarded-For` nilai paling kanan hanya saat ada penanda proxy tepercaya (Vercel/Cloudflare); selain itu memakai `socket.remoteAddress`. Header forwarding dari koneksi langsung tidak dipercaya untuk mencegah spoofing.
+- Download dan probe media hanya dari daftar host yang diizinkan, dengan redirect divalidasi per-hop, batas ukuran streaming, dan `nosniff`.
+- Di produksi, unduhan selalu memakai token HMAC bertanda tangan dengan masa berlaku 15 menit; token juga direkomendasikan di semua environment lain.
 - Header keamanan diterapkan global: CSP, HSTS, `X-Frame-Options: DENY`, COOP/CORP, dan lainnya.
 - Health endpoint hanya memaparkan kesiapan runtime, bukan konfigurasi rahasia.
 

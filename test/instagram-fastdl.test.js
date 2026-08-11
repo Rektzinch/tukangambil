@@ -96,25 +96,35 @@ test("convertToItems prefers a video variant over its poster frame", () => {
   assert.equal(items[0].url, "https://dl/video");
 });
 
-test("web requests are signed like the FastDL browser client", () => {
-  const body = fastdl.signWebRequest({ username: "gebiann", maxId: "" }, { now: 1786064383084 });
-  assert.equal(body._ts, 1785411663296);
-  assert.equal(body._tsc, 0);
-  assert.equal(body._sv, 2);
-  assert.match(body._s, /^[0-9a-f]{64}$/);
-  assert.equal(body.username, "gebiann");
+test("web requests are signed with an operator-provided FastDL signing configuration", () => {
+  const original = { secret: process.env.FASTDL_WEB_SIGNATURE_SECRET, timestamp: process.env.FASTDL_WEB_SIGNATURE_TIMESTAMP };
+  try {
+    process.env.FASTDL_WEB_SIGNATURE_SECRET = "a".repeat(64);
+    process.env.FASTDL_WEB_SIGNATURE_TIMESTAMP = "1785411663296";
+    const body = fastdl.signWebRequest({ username: "gebiann", maxId: "" }, { now: 1786064383084 });
+    assert.equal(body._ts, 1785411663296);
+    assert.equal(body._tsc, 0);
+    assert.equal(body._sv, 2);
+    assert.match(body._s, /^[0-9a-f]{64}$/);
+    assert.equal(body.username, "gebiann");
+  } finally {
+    if (original.secret !== undefined) process.env.FASTDL_WEB_SIGNATURE_SECRET = original.secret; else delete process.env.FASTDL_WEB_SIGNATURE_SECRET;
+    if (original.timestamp !== undefined) process.env.FASTDL_WEB_SIGNATURE_TIMESTAMP = original.timestamp; else delete process.env.FASTDL_WEB_SIGNATURE_TIMESTAMP;
+  }
 });
 
-test("isEnabled supports the public signed web client", () => {
-  const orig = { k: process.env.FASTDL_API_KEY, s: process.env.FASTDL_WEB_SIGNATURE_SECRET };
+test("isEnabled requires an API key or a complete operator-managed signing configuration", () => {
+  const original = { key: process.env.FASTDL_API_KEY, secret: process.env.FASTDL_WEB_SIGNATURE_SECRET, timestamp: process.env.FASTDL_WEB_SIGNATURE_TIMESTAMP };
   try {
     delete process.env.FASTDL_API_KEY;
     delete process.env.FASTDL_WEB_SIGNATURE_SECRET;
-    assert.equal(fastdl.isEnabled(), true);
+    delete process.env.FASTDL_WEB_SIGNATURE_TIMESTAMP;
+    assert.equal(fastdl.isEnabled(), false);
     process.env.FASTDL_API_KEY = "x";
     assert.equal(fastdl.isEnabled(), true);
   } finally {
-    if (orig.k !== undefined) process.env.FASTDL_API_KEY = orig.k; else delete process.env.FASTDL_API_KEY;
-    if (orig.s !== undefined) process.env.FASTDL_WEB_SIGNATURE_SECRET = orig.s; else delete process.env.FASTDL_WEB_SIGNATURE_SECRET;
+    if (original.key !== undefined) process.env.FASTDL_API_KEY = original.key; else delete process.env.FASTDL_API_KEY;
+    if (original.secret !== undefined) process.env.FASTDL_WEB_SIGNATURE_SECRET = original.secret; else delete process.env.FASTDL_WEB_SIGNATURE_SECRET;
+    if (original.timestamp !== undefined) process.env.FASTDL_WEB_SIGNATURE_TIMESTAMP = original.timestamp; else delete process.env.FASTDL_WEB_SIGNATURE_TIMESTAMP;
   }
 });

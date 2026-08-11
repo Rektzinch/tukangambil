@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   classifyUrl, collectTags, safeName, extensionFromUrl, mimeFromFilename,
-  applyDownloadFilenames, attachDownloadTokens
+  applyDownloadFilenames, attachDownloadTokens, allowedMediaUrl
 } = require("../lib/core");
 const { createRateLimiter } = require("../lib/rate-limit");
 const igDirect = require("../lib/instagram-direct");
@@ -295,7 +295,8 @@ async function resolveItem(item) {
 function finalizeProfileResult(raw, { offset, limit }) {
   const items = raw.items.map(item => {
     const { _sourceUrl, _formats, ...clean } = item;
-    const available = Boolean(clean.url && /^https:/i.test(clean.url));
+    const available = Boolean(clean.url && allowedMediaUrl(clean.url));
+    clean.thumb = allowedMediaUrl(clean.thumb) ? clean.thumb : null;
     if (_sourceUrl) {
       clean.sourceUrl = _sourceUrl;
     }

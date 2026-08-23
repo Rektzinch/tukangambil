@@ -13,6 +13,7 @@ const fastdl = require("../lib/instagram-fastdl");
 const igDirect = require("../lib/instagram-direct");
 const wavy = require("../lib/wavy");
 const getMyFb = require("../lib/facebook-getmyfb");
+const xFxtwitter = require("../lib/x-fxtwitter");
 
 const TIKWM_URL = "https://www.tikwm.com/api/";
 const MUSICALDOWN_URL = "https://musicaldown.com/id";
@@ -421,6 +422,7 @@ function buildAttempts(classified, mode) {
     return attempts;
   }
   if (["threads", "x"].includes(classified.platform)) attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
+  if (classified.platform === "x") attempts.unshift({ name: "fxtwitter", priority: 10, run: () => xFxtwitter.requestXTwitter(classified, mode) });
   if (classified.platform === "tiktok") {
     attempts.push({ name: "musicaldown", run: () => requestMusicalDown(classified, mode) });
     attempts.push({ name: "tikwm", run: () => requestTikwm(classified, mode) });

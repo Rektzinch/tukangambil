@@ -178,11 +178,11 @@ function explainMediaError(error) {
   const source = String(error?.message || "").toLowerCase();
   if (error?.name === "AbortError") return "Pemeriksaan sumber terlalu lama. Coba ulang atau gunakan tautan postingan yang lebih baru.";
   if (error?.status === 429) return "Batas permintaan sementara tercapai. Tunggu sebentar lalu coba kembali.";
-  if (error?.status === 401) return "Sesi unduhan tidak lagi valid. Analisis ulang tautan ini, lalu unduh dari hasil terbaru.";
+  if (error?.status === 401) return "Sesi unduhan tidak lagi valid. Ambil ulang tautan ini, lalu unduh dari hasil terbaru.";
   if (error?.status === 502 || /upstream|provider|media belum dapat|tidak dapat diunduh/.test(source)) return "Sumber media sedang menolak akses, tautannya telah kedaluwarsa, atau formatnya berubah. Coba ulang, pilih kualitas lain, atau gunakan tautan postingan asli.";
-  if (/host media tidak diizinkan|url media tidak diizinkan/.test(source)) return "CDN media ini belum didukung oleh proxy aman kami. Gunakan tautan postingan asli agar sumber lain dapat dicoba.";
+  if (/host media tidak diizinkan|url media tidak diizinkan/.test(source)) return "Sumber media ini belum didukung. Coba gunakan tautan postingan aslinya.";
   if (/tidak ada media|tidak menemukan/.test(source)) return "Tidak ada media publik yang dapat diambil dari tautan ini. Pastikan postingan bersifat publik dan masih aktif.";
-  return error?.message || "Ekstraksi gagal. Periksa tautan dan coba lagi.";
+  return error?.message || "Media belum berhasil diambil. Periksa tautan dan coba lagi.";
 }
 
 function platformFromUrl(value) {
@@ -203,17 +203,17 @@ function updateUrlFeedback() {
   if (mode === "profile") {
     formHint.classList.add("detected");
     formHintIcon.textContent = "✓";
-    formHintText.textContent = "Mode Media Profil aktif. Masukkan tautan profil publik TikTok, Instagram, Facebook, Threads, atau X.";
+    formHintText.textContent = "Tempel tautan profil publik untuk mengambil koleksinya.";
   } else if (platform) {
     formHint.classList.add("detected");
     formHintIcon.textContent = "✓";
     formHintText.textContent = `${platform} terdeteksi. Tautan siap diproses.`;
   } else {
     formHint.classList.remove("detected");
-    formHintIcon.textContent = "✦";
+    formHintIcon.textContent = "ⓘ";
     formHintText.textContent = input.value.trim()
       ? "Pastikan tautan berasal dari platform yang didukung."
-      : "Hanya untuk konten publik. Kami tidak menyimpan URL kamu.";
+      : "Untuk konten publik yang tersedia.";
   }
 }
 
@@ -261,7 +261,7 @@ function setScanLabel(label, sub) {
 function start() {
   const began = Date.now();
   scan.hidden = false;
-  showLoader(mode === "profile" ? "Mengambil media profil…" : "Mengekstrak media…");
+  showLoader(mode === "profile" ? "Mengambil media profil…" : "Menyiapkan media…");
   scanTime.textContent = "00:00";
   scanProgress.style.width = "12%";
   scan.style.setProperty("--p", "12%");
@@ -281,19 +281,19 @@ function start() {
     scanPercent.textContent = `${progress}%`;
     if (seconds >= 45) {
       setScanStep(3);
-      setScanLabel("Masih memproses media", "Provider membutuhkan waktu lebih lama dari biasanya");
+      setScanLabel("Masih memproses media", "Sumbernya sedang butuh waktu lebih lama. Tunggu sebentar, ya.");
     } else if (seconds >= 18) {
       setScanStep(3);
-      setScanLabel("Menyiapkan preview", "Hasil akhir sedang dirapikan untuk ditampilkan");
+      setScanLabel("Menyiapkan hasil", "Hasil akhir sedang dirapikan untuk ditampilkan");
     } else if (seconds >= 8) {
       setScanStep(2);
       setScanLabel("Memilih kualitas terbaik", "Membandingkan format video, gambar, dan audio");
     } else if (seconds >= 3) {
       setScanStep(1);
-      setScanLabel("Menghubungi provider", `Mencari sumber ${kind} yang dapat diunduh`);
+      setScanLabel("Menghubungi sumber", `Mencari sumber ${kind} yang dapat diunduh`);
     } else {
       setScanStep(0);
-      setScanLabel("Memvalidasi tautan", `Memeriksa alamat dan jenis ${kind}`);
+      setScanLabel("Memeriksa tautan", `Memeriksa alamat dan jenis ${kind}`);
     }
   }
 
@@ -314,7 +314,7 @@ function stop() {
   scanPercent.textContent = "0%";
   scanProgressTrack.setAttribute("aria-valuenow", "0");
   submit.disabled = false;
-  submitText.textContent = mode === "profile" ? "Ambil media profil" : "Ambil dan preview";
+  submitText.textContent = mode === "profile" ? "Ambil media profil" : "Ambil sekarang";
   form.removeAttribute("aria-busy");
 }
 
@@ -396,7 +396,7 @@ function trustedInstagramProfileUrl(value) {
 
 function renderInstagramProfileFallback(url) {
   const sourceUrl = trustedInstagramProfileUrl(url);
-  results.innerHTML = `<div class="results-title"><span>Instagram · akses profil</span><b>JALUR AMAN</b></div><section class="collection profile-fallback"><div class="profile-fallback-copy"><span class="profile-fallback-kicker">AKSES SERVER DIBATASI</span><h2>Profil publik masih tersedia melalui tautan asli.</h2><p>Instagram menolak permintaan otomatis dari server saat ini. Untuk menjaga keamanan, TukangAmbil tidak memakai cookie, signature, atau secret pihak ketiga untuk memaksakan akses.</p><div class="profile-fallback-actions"><a class="profile-fallback-link primary" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">Buka profil Instagram <span aria-hidden="true">↗</span></a><a class="profile-fallback-link" href="https://anonyig.com/en/instagram-profile-viewer/" target="_blank" rel="noopener noreferrer">Buka viewer publik <span aria-hidden="true">↗</span></a></div><p class="profile-fallback-note">Masukkan username atau URL profil yang sama pada viewer publik. Hanya gunakan untuk konten yang memang bersifat publik.</p></div></section>`;
+  results.innerHTML = `<div class="results-title"><span>Instagram · akses profil</span><b>Coba lewat sumber</b></div><section class="collection profile-fallback"><div class="profile-fallback-copy"><span class="profile-fallback-kicker">Belum bisa diambil</span><h2>Coba buka profil aslinya.</h2><p>Instagram sedang membatasi pengambilan koleksi profil. Kamu bisa membuka profil aslinya, mencoba tautan satu postingan, atau menggunakan penampil publik berikut.</p><div class="profile-fallback-actions"><a class="profile-fallback-link primary" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">Buka profil Instagram <span aria-hidden="true">↗</span></a><a class="profile-fallback-link" href="https://anonyig.com/en/instagram-profile-viewer/" target="_blank" rel="noopener noreferrer">Buka penampil publik <span aria-hidden="true">↗</span></a></div><p class="profile-fallback-note">Masukkan username atau URL profil yang sama pada penampil publik. Hanya gunakan untuk konten yang memang bersifat publik.</p></div></section>`;
   results.hidden = false;
   results.scrollIntoView({ behavior: "smooth" });
 }
@@ -414,7 +414,7 @@ function getModal() {
   if (modal) return modal;
   modal = document.createElement("div");
   modal.className = "modal";
-  modal.innerHTML = '<div class="modal-box" role="dialog" aria-modal="true" aria-label="Preview media"><div class="modal-top"><b></b><button type="button" aria-label="Tutup">×</button></div><div class="modal-content"></div></div>';
+  modal.innerHTML = '<div class="modal-box" role="dialog" aria-modal="true" aria-label="Pratinjau media"><div class="modal-top"><b></b><button type="button" aria-label="Tutup">×</button></div><div class="modal-content"></div></div>';
   document.body.appendChild(modal);
   modal.addEventListener("click", event => {
     if (event.target === modal) closeModal();
@@ -459,7 +459,7 @@ async function openHdModal(i, button) {
     const item = body.items?.[0];
     if (!item) throw new Error("Versi HD tidak ditemukan.");
     const meta = `<div class="badges"><span class="badge">${escapeHtml(body.platform || "media")}</span><span class="badge">${escapeHtml(item.type)}</span><span class="badge badge-quality${item.bestQuality ? " best" : ""}">${escapeHtml(item.quality || "HD")}</span>${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}</div>`;
-    modal.querySelector(".modal-content").innerHTML = `<div class="preview">${preview(item)}</div><div class="meta"><div class="badges">${meta}</div><h2>${escapeHtml(body.title || item.filename)}</h2><p>${escapeHtml(body.author || "")}</p><a class="download" data-dl="0" href="${escapeHtml(mediaUrl(item))}">Download versi HD</a></div>`;
+    modal.querySelector(".modal-content").innerHTML = `<div class="preview">${preview(item)}</div><div class="meta"><div class="badges">${meta}</div><h2>${escapeHtml(body.title || item.filename)}</h2><p>${escapeHtml(body.author || "")}</p><a class="download" data-dl="0" href="${escapeHtml(mediaUrl(item))}">Unduh versi HD</a></div>`;
     bindDownloads(modal, [item]);
   } catch (error) {
     modal.querySelector(".modal-content").innerHTML = `<div class="message error show">${escapeHtml(error.message)}</div>`;
@@ -471,7 +471,7 @@ function openModal(i, button) {
   const item = data.items[i];
   const modal = getModal();
   modal.querySelector(".modal-top b").textContent = `${i + 1} / ${data.items.length}`;
-  modal.querySelector(".modal-content").innerHTML = `<div class="preview">${preview(item)}</div><div class="meta"><h2>${escapeHtml(item.filename)}</h2><a class="download" href="${escapeHtml(mediaUrl(item))}" data-dl="${i}">Download media ini</a></div>`;
+  modal.querySelector(".modal-content").innerHTML = `<div class="preview">${preview(item)}</div><div class="meta"><h2>${escapeHtml(item.filename)}</h2><a class="download" href="${escapeHtml(mediaUrl(item))}" data-dl="${i}">Unduh media ini</a></div>`;
   bindDownloads(modal, [...data.items]);
   modal.hidden = false;
   document.body.style.overflow = "hidden";
@@ -484,7 +484,7 @@ async function downloadAll() {
     show("Tidak ada media yang dapat diunduh.", "error");
     return;
   }
-  show("Browser akan memulai unduhan satu per satu. Izinkan multiple downloads bila diminta.");
+  show("Unduhan dimulai satu per satu. Izinkan beberapa unduhan jika browser meminta.");
   for (const item of available) {
     const anchor = document.createElement("a");
     anchor.href = mediaUrl(item);
@@ -505,7 +505,7 @@ function render() {
     const loadMore = profileHasMore ? `<button class="load-more" type="button">Muat lebih banyak</button>` : "";
     const orderControl = isProfileCollection ? `<div class="order-control" role="group" aria-label="Urutkan media"><span>Urutkan media</span><div class="order-options"><button type="button" data-order="newest" aria-pressed="${profileOrder === "newest"}">Terbaru</button><button type="button" data-order="oldest" aria-pressed="${profileOrder === "oldest"}">Terlama</button></div></div>` : "";
     const profileCard = profile ? `<div class="profile-card"><div class="profile-avatar">${profile.avatar ? `<img src="${escapeHtml(avatarUrl(profile))}" alt="Avatar ${escapeHtml(profile.username)}">` : `<span>${escapeHtml((profile.username || "?")[0].toUpperCase())}</span>`}</div><div class="profile-main"><h2>${escapeHtml(profile.nickname || "")}</h2><p class="profile-handle">@${escapeHtml(profile.username || "")}</p>${profile.bio ? `<p class="profile-bio">${escapeHtml(profile.bio)}</p>` : ""}<div class="profile-stats"><span><b>${formatCount(profile.followers)}</b><small>Pengikut</small></span><span><b>${formatCount(profile.following)}</b><small>Mengikuti</small></span><span><b>${formatCount(profile.mediaCount)}</b><small>Media</small></span><span><b>${formatCount(profile.likes)}</b><small>Suka</small></span></div></div></div>` : "";
-    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><div class="collection-title"><div><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p></div>${orderControl}</div>${collectionWarnings}<button class="download-all" type="button">Download semua media</button></div>${profileCard}<div class="grid">${data.items.map((item, i) => { const date = formatMediaDate(item.publishedAt); return `<article class="tile${item.available === false ? " unavailable" : ""}"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span>${item.quality ? `<span class="badge badge-quality${item.bestQuality ? " best" : ""}">${escapeHtml(item.quality)}</span>` : ""}${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}${item.available === false ? '<span class="badge badge-muted">Tidak tersedia</span>' : ""}</div>${date ? `<time class="tile-date" datetime="${escapeHtml(item.publishedAt)}">${escapeHtml(date)}</time>` : ""}<h3>${escapeHtml(item.filename)}</h3><div class="tile-actions">${item.available === false ? '<span class="tile-note">Media tidak dapat diunduh</span>' : `<button class="preview-btn" data-preview="${i}" type="button">Preview</button><button class="hd-btn" data-hd="${i}" type="button">Versi HD</button>`}</div></article>`; }).join("")}</div>${loadMore}</section><div class="download-all-sticky"><button class="download-all" type="button">Download semua media</button></div>`;
+    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.title)}</span><b>${data.items.length} media</b></div><section class="collection"><div class="collection-head"><div class="collection-title"><div><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p></div>${orderControl}</div>${collectionWarnings}<button class="download-all" type="button">Unduh semua media</button></div>${profileCard}<div class="grid">${data.items.map((item, i) => { const date = formatMediaDate(item.publishedAt); return `<article class="tile${item.available === false ? " unavailable" : ""}"><div class="tile-media">${item.type === "image" ? `<img src="${escapeHtml(mediaUrl(item, true))}" alt="${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : item.thumb ? `<img src="${escapeHtml(thumbUrl(item))}" alt="Thumbnail ${escapeHtml(item.filename)}" loading="lazy" decoding="async">` : `<span>${item.type.toUpperCase()}</span>`}</div><div class="tile-badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span>${item.quality ? `<span class="badge badge-quality${item.bestQuality ? " best" : ""}">${escapeHtml(item.quality)}</span>` : ""}${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}${item.available === false ? '<span class="badge badge-muted">Tidak tersedia</span>' : ""}</div>${date ? `<time class="tile-date" datetime="${escapeHtml(item.publishedAt)}">${escapeHtml(date)}</time>` : ""}<h3>${escapeHtml(item.filename)}</h3><div class="tile-actions">${item.available === false ? '<span class="tile-note">Media tidak dapat diunduh</span>' : `<button class="preview-btn" data-preview="${i}" type="button">Lihat</button><button class="hd-btn" data-hd="${i}" type="button">Versi HD</button>`}</div></article>`; }).join("")}</div>${loadMore}</section><div class="download-all-sticky"><button class="download-all" type="button">Unduh semua media</button></div>`;
     results.querySelectorAll("[data-preview]").forEach(button => button.addEventListener("click", () => openModal(Number(button.dataset.preview), button)));
     results.querySelectorAll("[data-hd]").forEach(button => button.addEventListener("click", () => openHdModal(Number(button.dataset.hd), button)));
     results.querySelectorAll(".download-all").forEach(button => button.addEventListener("click", () => downloadAll()));
@@ -515,7 +515,7 @@ function render() {
     orderButtons.forEach(button => button.addEventListener("click", () => reloadProfileOrder(button.dataset.order, orderButtons)));
   } else {
     const item = data.items[index];
-    results.innerHTML = `<div class="results-title"><span>${escapeHtml(data.resourceKind || "media")} · media</span><b>${index + 1}/${data.items.length}</b></div><section class="card"><div class="preview">${preview(item)}</div><div class="meta"><div class="badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span><span class="badge${item.bestQuality ? " badge-quality best" : ""}">${escapeHtml(item.quality)}</span>${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}</div><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${data.warnings?.length ? `<p>${data.warnings.map(escapeHtml).join(" · ")}</p>` : ""}<a class="download" data-dl="${index}" href="${escapeHtml(mediaUrl(item))}">Download media ini</a>${data.items.length > 1 ? '<div class="nav"><button data-nav="prev">Sebelumnya</button><button data-nav="next">Berikutnya</button></div>' : ""}</div></section>`;
+    results.innerHTML = `<div class="results-title"><span>Siap disimpan · ${escapeHtml(data.platform || "media")}</span><b>${index + 1}/${data.items.length}</b></div><section class="card"><div class="preview">${preview(item)}</div><div class="meta"><div class="badges"><span class="badge">${escapeHtml(data.platform)}</span><span class="badge">${escapeHtml(item.type)}</span><span class="badge${item.bestQuality ? " badge-quality best" : ""}">${escapeHtml(item.quality)}</span>${item.size ? `<span class="badge badge-muted">${escapeHtml(item.size)}</span>` : ""}</div><h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.author || "")}</p>${data.warnings?.length ? `<p>${data.warnings.map(escapeHtml).join(" · ")}</p>` : ""}<a class="download" data-dl="${index}" href="${escapeHtml(mediaUrl(item))}">Unduh media ini</a>${data.items.length > 1 ? '<div class="nav"><button data-nav="prev">Sebelumnya</button><button data-nav="next">Berikutnya</button></div>' : ""}</div></section>`;
     results.querySelectorAll("[data-nav]").forEach(button => button.addEventListener("click", () => {
       index = button.dataset.nav === "next" ? (index + 1) % data.items.length : (index - 1 + data.items.length) % data.items.length;
       render();
@@ -534,8 +534,9 @@ document.querySelectorAll(".mode").forEach(button => button.addEventListener("cl
   button.classList.add("active");
   button.setAttribute("aria-pressed", "true");
   mode = button.dataset.mode;
-  submitText.textContent = mode === "profile" ? "Ambil media profil" : "Ambil dan preview";
+  submitText.textContent = mode === "profile" ? "Ambil media profil" : "Ambil sekarang";
   updateUrlFeedback();
+  if (mode === "profile") openProfileNotice();
   show(`Mode ${button.querySelector("b")?.textContent || mode} dipilih.`);
 }));
 
@@ -548,7 +549,7 @@ pasteBtn.addEventListener("click", async () => {
     show("Tautan berhasil ditempel.", "success");
     input.focus();
   } catch {
-    show("Izin clipboard tidak tersedia.", "error");
+    show("Belum bisa membaca clipboard. Tekan lama kolom tautan, lalu pilih Tempel.", "error");
   }
 });
 
@@ -594,13 +595,13 @@ form.addEventListener("submit", async event => {
     render();
     bump("success");
     bumpPlatform(body.platform);
-    show(`${body.items.length} media berhasil diekstrak.`, "success");
+    show(`${body.items.length} media siap diunduh.`, "success");
     results.scrollIntoView({ behavior: "smooth" });
   } catch (error) {
     bump("failed");
     if (profile && error.code === "INSTAGRAM_PROFILE_RESTRICTED") {
       renderInstagramProfileFallback(url);
-      show("Profil Instagram memblokir akses otomatis. Gunakan salah satu jalur aman yang tersedia.", "error");
+      show("Koleksi Instagram belum bisa diambil. Coba buka sumber aslinya.", "error");
     } else {
       show(explainMediaError(error), "error");
     }
@@ -704,4 +705,3 @@ profileNotice?.addEventListener("close", () => {
 renderStats();
 observeReveals();
 updateUrlFeedback();
-openProfileNotice();

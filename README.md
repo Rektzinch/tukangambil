@@ -1,4 +1,6 @@
-# TukangAmbil
+# TukangAmbil — Ambil aja.
+
+**Satu tautan. Beres.** Antarmuka memakai biru elektrik, latar putih tulang, judul Sora, dan ikon unduh. Formulir utama langsung tersedia di desktop dan HP. Hasil unduhan, koleksi profil, dialog, status proses, serta bantuan mengikuti tema yang sama. Statistik penggunaan tetap tersedia dalam panel Aktivitas kamu.
 
 Downloader media publik untuk TikTok, Instagram, Facebook, Threads, dan X. Versi 2 memisahkan klasifikasi URL, orkestrasi provider, validasi hasil, serta proxy download agar kegagalan satu platform tidak merusak platform lain.
 

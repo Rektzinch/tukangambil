@@ -86,3 +86,29 @@ test('client disconnect while awaiting upstream aborts fetch', async t => {
   await running;
   assert.equal(aborted, true);
 });
+
+test('download retries a failed primary URL and cancels its body', async t => {
+  let cancelled = false;
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async url => {
+    calls.push(url);
+    return url.includes('demo') ? new Response(new ReadableStream({ cancel() { cancelled = true; } }), { status: 403 }) : new Response('usable video', { headers: { 'content-type': 'video/mp4' } });
+  });
+  const req = request(); req.query.alternatives = JSON.stringify(['https://video.twimg.com/alternative.mp4', 'https://evil.test/file']);
+  const res = response();
+  await download(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(Buffer.concat(res.chunks).toString(), 'usable video');
+  assert.equal(cancelled, true);
+  assert.equal(calls.length, 2);
+});
+
+test('resumed downloads never switch to a different encoding at a nonzero offset', async t => {
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async () => { calls++; return new Response('blocked', { status: 403 }); });
+  const req = request(); req.headers.range = 'bytes=512-'; req.query.alternatives = JSON.stringify(['https://video.twimg.com/alternative.mp4']);
+  const res = response();
+  await download(req, res);
+  assert.equal(res.statusCode, 502);
+  assert.equal(calls, 1);
+});

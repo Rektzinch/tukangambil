@@ -10,7 +10,7 @@ Downloader media publik untuk TikTok, Instagram, Facebook, Threads, dan X. Versi
 - Story publik TikTok, Instagram, dan Facebook selama masih aktif dan dapat diakses tanpa login; cookie opsional dapat dipasang untuk media yang memang memerlukan sesi pengguna.
 - Fallback provider paralel dengan deadline global.
 - Pemilihan format progressive yang memiliki video dan audio, dengan prioritas **resolusi asli tertinggi** (hingga 4K/super HD sesuai ketersediaan source); MP4/H.264 tetap dipilih saat resolusi sama untuk kompatibilitas pemutar.
-- Race provider memakai **jendela kualitas** (±8 detik): hasil cepat tetap dipertimbangkan, tetapi bila provider lain membawa resolusi lebih tinggi dalam jendela itu, hasil tertinggi yang dipakai.
+- Race provider memakai **jendela kualitas** (3,5 detik setelah file pertama lolos pemeriksaan): hasil cepat tetap dipertimbangkan, tetapi bila provider lain membawa resolusi lebih tinggi dalam jendela itu, hasil tertinggi yang dipakai.
 - Untuk TikTok, hasil terbaik diverifikasi **dapat diunduh** server-side; bila stream resolusi tertinggi diblokir tanpa sesi (mis. host `*-webapp-prime` mengembalikan 403), layanan otomatis memakai kualitas publik terbaik yang bisa diunduh dan menambahkan peringatan.
 - TikTok memakai MusicalDown sebagai fallback scraping terisolasi. Parser mengikuti nama field form yang dinamis, hanya menerima tautan media dari `fastdl.muscdn.app`, memprioritaskan MP4 HD tanpa watermark, lalu tetap memverifikasi bahwa file dapat diunduh.
 - Batas ukuran unduhan default dinaikkan ke **1 GiB** agar video HD/4K tidak tertolak (atur lewat `MAX_DOWNLOAD_BYTES`).
@@ -62,7 +62,7 @@ Proses instalasi mengunduh binary yt-dlp Linux sesuai arsitektur runtime: x64 at
 
 ### UI dan pengujian browser
 
-Antarmuka memakai identitas kertas–tinta dengan aksen oranye, font Archivo lokal, layout responsif, bantuan profil opsional, dan statistik lokal yang dapat dilipat. Indikator pemrosesan bersifat indeterminate: tidak menampilkan persentase atau tahap provider yang dibuat-buat.
+Antarmuka memakai biru elektrik dan putih tulang, font Sora dan Archivo lokal, layout responsif, bantuan profil opsional, dan statistik lokal yang dapat dilipat. Indikator pemrosesan bersifat indeterminate: tidak menampilkan persentase atau tahap provider yang dibuat-buat.
 
 Pengujian browser bersifat opt-in dan memakai fixture API, bukan bukti keterjangkauan provider nyata. Setelah build, jalankan server statis untuk `dist` pada port 4173, lalu dari terminal lain:
 
@@ -76,7 +76,7 @@ node --test test/frontend-browser.cjs
 
 ## Perlindungan
 
-- Rate limit per IP pada endpoint `/api/extract` dan `/api/profile` (20/menit) serta `/api/download` (40/menit) dengan jendela 60 detik. Penegakan bersifat **best-effort per instance** di deployment serverless kecuali `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` diisi, yang menegakkannya secara persisten antar instance. Jendela `Retry-After` disesuaikan dengan sisa waktu.
+- Rate limit per IP pada endpoint `/api/extract` dan `/api/profile` (20/menit) serta `/api/download` (60/menit), serta pratinjau (180/menit dengan kuota terpisah) dengan jendela 60 detik. Penegakan bersifat **best-effort per instance** di deployment serverless kecuali `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` diisi, yang menegakkannya secara persisten antar instance. Jendela `Retry-After` disesuaikan dengan sisa waktu.
 - Deteksi IP: `CF-Connecting-IP` hanya saat ada penanda Cloudflare; `X-Forwarded-For` nilai paling kanan hanya saat ada penanda proxy tepercaya (Vercel/Cloudflare); selain itu memakai `socket.remoteAddress`. Header forwarding dari koneksi langsung tidak dipercaya untuk mencegah spoofing.
 - Download dan probe media hanya dari daftar host yang diizinkan, dengan redirect divalidasi per-hop, batas ukuran streaming, dan `nosniff`.
 - Saat `DOWNLOAD_TOKEN_SECRET` diisi, token HMAC wajib untuk unduhan maupun pratinjau; raw URL tidak dapat melewati mode signed. Respons menyediakan `downloadToken`, `thumbToken`, dan `profile.avatarToken` sesuai media yang tersedia. Token berlaku 15 menit; lakukan ekstraksi ulang setelah kedaluwarsa. Tanpa secret, fallback hanya menerima request browser same-origin yang menyertakan metadata fetch dan origin/referrer yang cocok; header `Referer` saja tidak cukup.
@@ -105,3 +105,12 @@ Content-Type: application/json
 - Respons memakai bentuk `validateResult` yang sama dengan `/api/extract`, ditambah `pagination: { offset, limit, hasMore, order }`.
 - Selama `pagination.hasMore === true`, panggil lagi dengan `offset` yang bertambah untuk menarik halaman berikutnya.
 - Setiap item memiliki `downloadToken` (bila `DOWNLOAD_TOKEN_SECRET` diisi) dan dapat diunduh lewat `/api/download` seperti media lainnya.
+
+## Pemulihan provider dan tautan media
+
+- Semua hasil ekstraksi diperiksa lewat permintaan range sebelum ditampilkan. Hasil dengan file yang menolak akses, kosong, atau berupa HTML tidak memenangkan pemilihan provider.
+- TikWM menggunakan GET dan mempertahankan tautan video standar sebagai cadangan HD. Proxy mencoba cadangan yang diizinkan bila file utama gagal; unduhan yang dilanjutkan dari offset nonnol tidak berganti encoding agar file tidak rusak.
+- Instagram post/reel/carousel menggunakan embed publik Instagram dan VXInstagram sebagai alternatif, bersama provider yang sudah ada. Gambar poster tidak diperlakukan sebagai video yang berhasil diambil.
+- Bila API profil Instagram gagal, embed profil menyediakan beberapa postingan terbaru dengan `pagination.scope: public-embed`. Ini bukan riwayat lengkap; urutan paling lama tetap memerlukan akses API profil. Tautan postingan langsung dapat diproses terpisah.
+- Koleksi TikTok memeriksa URL asli dan penyedia alternatif dalam batas waktu. Media yang belum tersedia tetap menunjukkan tautan sumber dan tombol Ambil ulang.
+- Provider eksternal tetap bisa gagal karena penghapusan konten, pembatasan akses, atau gangguan layanan. Hasil pengujian publik tidak menjamin seluruh Story, profil, atau format turunan tersedia tanpa sesi.

@@ -5,7 +5,8 @@ const { createRateLimiter } = require("../lib/rate-limit");
 const { allowedMediaUrl, fetchAllowedMedia, mediaRequestHeaders } = require("../lib/media-policy");
 
 const MAX_BYTES = Math.max(5 * 1024 * 1024, Number(process.env.MAX_DOWNLOAD_BYTES) || 1024 * 1024 * 1024);
-const rateLimit = createRateLimiter({ max: 40 });
+const rateLimit = createRateLimiter({ max: 60, namespace: "download" });
+const previewRateLimit = createRateLimiter({ max: 180, namespace: "preview" });
 
 function sameOriginBrowserRequest(req) {
   const host = String(req?.headers?.host || "").trim().toLowerCase();
@@ -43,7 +44,7 @@ module.exports = async function handler(req, res) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   if (req.method !== "GET") return res.status(405).json({ error: "Metode tidak didukung." });
 
-  const limited = await rateLimit.check(req);
+  const limited = await (req.query?.preview === "1" ? previewRateLimit : rateLimit).check(req);
   if (!limited.ok) {
     res.setHeader("Retry-After", String(limited.retryAfter || 60));
     return res.status(429).json({ error: "Terlalu banyak permintaan. Coba lagi sebentar." });
@@ -68,7 +69,23 @@ module.exports = async function handler(req, res) {
   if (req.aborted || res.destroyed) controller.abort();
   try {
     const preview = req.query?.preview === "1";
-    upstream = await fetchAllowed(rawUrl, mediaRequestHeaders(rawUrl, req.headers?.range), controller.signal);
+    let rawAlternatives = [];
+    if (rawFallback && typeof req.query?.alternatives === "string" && req.query.alternatives.length < 16000) {
+      try { const parsed = JSON.parse(req.query.alternatives); if (Array.isArray(parsed)) rawAlternatives = parsed; } catch {}
+    }
+    const canSwitchFile = !req.headers?.range || /^bytes=0-\d*$/.test(req.headers.range);
+    const candidates = [...new Set([rawUrl, ...(canSwitchFile ? tokenData?.fallbackUrls || rawAlternatives : [])])].filter(allowedMediaUrl).slice(0, 4);
+    const fetchDeadline = Date.now() + 35000;
+    for (const candidate of candidates) {
+      if (controller.signal.aborted) break;
+      try {
+        upstream = await fetchAllowedMedia(candidate, { headers: mediaRequestHeaders(candidate, req.headers?.range), timeoutMs: Math.max(1, Math.min(15000, fetchDeadline - Date.now())), signal: controller.signal });
+        if (upstream.status === 416 || (upstream.ok && upstream.body && isDownloadable(filename, upstream.headers.get("content-type")) && upstream.headers.get("content-length") !== "0")) break;
+        await upstream.body?.cancel();
+        upstream = null;
+      } catch (error) { if (Date.now() >= fetchDeadline || controller.signal.aborted) throw error; }
+    }
+    if (!upstream) throw new Error("Semua tautan file gagal atau kedaluwarsa. Ambil ulang tautan postingannya.");
     if (upstream.status === 416) {
       await upstream.body?.cancel();
       const contentRange = upstream.headers.get("content-range");

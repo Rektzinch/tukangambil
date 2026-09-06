@@ -63,7 +63,8 @@ test("Instagram profiles bypass the broken yt-dlp user extractor", async () => {
   }
 });
 
-test("Instagram profile blocks return a safe fallback code", async () => {
+test("Instagram profile blocks return a safe fallback code", async t => {
+  t.mock.method(require("../lib/instagram-embed"), "requestProfileEmbed", async () => { throw new Error("Public embed unavailable"); });
   const original = instagramDirect.requestProfile;
   const originalEnabled = instagramFastdl.isEnabled;
   instagramFastdl.isEnabled = () => false;

@@ -66,9 +66,9 @@ test("GetMyFb request uses the scraped public process contract", async t => {
 });
 
 test("Facebook extraction races Wavy with GetMyFb", () => {
-  assert.deepEqual(extract.buildAttempts(classified, "auto").map(attempt => attempt.name), ["wavy", "getmyfb"]);
-  assert.deepEqual(extract.buildAttempts(classified, "audio").map(attempt => attempt.name), ["wavy"]);
-  assert.deepEqual(extract.buildAttempts(classified, "mute").map(attempt => attempt.name), ["wavy"]);
+  assert.deepEqual(extract.buildAttempts(classified, "auto").map(attempt => attempt.name), ["wavy", "getmyfb", "yt-dlp"]);
+  assert.deepEqual(extract.buildAttempts(classified, "audio").map(attempt => attempt.name), ["wavy", "yt-dlp"]);
+  assert.deepEqual(extract.buildAttempts(classified, "mute").map(attempt => attempt.name), ["wavy", "yt-dlp"]);
 });
 
 test("download proxy accepts GetMyFb CDN but not lookalikes", () => {
@@ -84,7 +84,7 @@ test("Facebook falls back when the winning provider media is unavailable", async
   const blocked = { platform: "facebook", items: [{ type: "image", url: "https://ssscdn.io/getmyfb/blocked", filename: "blocked.jpg" }] };
   const fallback = { platform: "facebook", items: [{ type: "image", url: "https://scontent.example.fbcdn.net/fallback.jpg", filename: "fallback.jpg" }] };
   let calls = 0;
-  t.mock.method(globalThis, "fetch", async () => ({ status: ++calls === 1 ? 403 : 206 }));
+  t.mock.method(globalThis, "fetch", async () => new Response("media", { status: ++calls === 1 ? 403 : 206, headers: {"content-type": "image/jpeg"} }));
   const picked = await extract.verifyTiktokResult(blocked, [{ result: blocked, score: 0 }, { result: fallback, score: 0 }]);
   assert.equal(picked.items[0].url, fallback.items[0].url);
 });

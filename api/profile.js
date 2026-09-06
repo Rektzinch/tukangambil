@@ -7,12 +7,14 @@ const {
   applyDownloadFilenames, attachDownloadTokens, allowedMediaUrl
 } = require("../lib/core");
 const { createRateLimiter } = require("../lib/rate-limit");
+const igEmbed = require("../lib/instagram-embed");
 const igDirect = require("../lib/instagram-direct");
 const fastdl = require("../lib/instagram-fastdl");
 const wavy = require("../lib/wavy");
+const mediaResolver = require("../lib/media-resolver");
 const { requestTikwm, requestMusicalDown } = require("./extract");
 
-const rateLimit = createRateLimiter({ max: 20 });
+const rateLimit = createRateLimiter({ max: 20, namespace: "profile" });
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 100;
 const GLOBAL_DEADLINE_MS = 45000;
@@ -218,6 +220,7 @@ function toMediaItem(replacement, item) {
     id: item.id || replacement.id,
     type: replacement.type || "video",
     url: replacement.url,
+    fallbackUrls: replacement.fallbackUrls || [],
     thumb: item.thumb || replacement.thumb || null,
     filename: item.filename || `${safeName(replacement.title || item.title || `media-${item.id || "video"}`)}.${ext}`,
     mime: replacement.mime || mimeFromFilename(`media.${ext}`),
@@ -273,19 +276,30 @@ async function resolveMusicalDownItem(item) {
   }
 }
 
-async function resolveItem(item) {
-  const resolvers = [resolveWavyItem, resolveTikwmItem, resolveMusicalDownItem];
-  for (const resolver of resolvers) {
-    const replacement = await resolver(item);
-    if (replacement?.url) return replacement;
-  }
-  return null;
+async function resolveItem(item, { deadline = Date.now() + 14000 } = {}) {
+  const direct = await mediaResolver.resolveMediaItem({ ...item, fallbackUrls: [...(item.fallbackUrls || []), ...(item._formats || []).filter(format => format.acodec !== "none" && format.vcodec !== "none").map(format => format.url)] }, { deadline: Math.min(deadline, Date.now() + 4000) });
+  if (direct) return direct;
+  if (Date.now() >= deadline || !item._sourceUrl) return null;
+  let timeout;
+  try {
+    return await Promise.race([
+      Promise.any([resolveTikwmItem, resolveWavyItem, resolveMusicalDownItem].map(async resolver => {
+        const result = await resolver(item);
+        if (!result) throw new Error("Media belum tersedia.");
+        const verified = await mediaResolver.resolveMediaItem(result, { deadline });
+        if (!verified) throw new Error("Tautan media tidak dapat diunduh.");
+        return verified;
+      })),
+      new Promise(resolve => { timeout = setTimeout(() => resolve(null), Math.max(1, deadline - Date.now())); })
+    ]);
+  } catch { return null; }
+  finally { clearTimeout(timeout); }
 }
 
 function finalizeProfileResult(raw, { offset, limit }) {
   const items = raw.items.map(item => {
     const { _sourceUrl, _formats, ...clean } = item;
-    const available = Boolean(clean.url && allowedMediaUrl(clean.url));
+    const available = clean.available !== false && Boolean(clean.url && allowedMediaUrl(clean.url));
     clean.thumb = allowedMediaUrl(clean.thumb) ? clean.thumb : null;
     if (_sourceUrl) {
       clean.sourceUrl = _sourceUrl;
@@ -414,17 +428,21 @@ async function requestYtdlp(classified, { limit, offset, order }) {
     ? [{ label: "flat", options: { ...base, flatPlaylist: true } }, { label: "full", options: base }]
     : [{ label: "full", options: base }];
   let lastError = null;
+  const deadline = Date.now() + 28000;
   for (const mode of modes) {
     for (let attempt = 0; attempt < MAX_YTDLP_ATTEMPTS; attempt += 1) {
       try {
-        const data = await runtimeExtractor()(classified.url, mode.options, { timeout: GLOBAL_DEADLINE_MS - 3000 });
+        const remaining = deadline - Date.now();
+        if (remaining < 1000) throw Object.assign(new Error("Batas waktu membaca profil tercapai."), { code: "GLOBAL_TIMEOUT" });
+        const data = await runtimeExtractor()(classified.url, mode.options, { timeout: Math.min(14000, remaining) });
         return normalizeYtdlp(data, classified, limit, offset, order);
       } catch (error) {
         lastError = error;
         const message = String(error?.message || "");
         const retriable = /secondary user ID|Unexpected response|HTTP Error 4\d\d|unable to extract|timed out|Requested format/i.test(message);
         if (retriable && attempt + 1 < MAX_YTDLP_ATTEMPTS) {
-          await sleep(1500 * (attempt + 1));
+          if (Date.now() + 1500 >= deadline) throw Object.assign(new Error("Batas waktu membaca profil tercapai."), { code: "GLOBAL_TIMEOUT" });
+          await sleep(1000);
           continue;
         }
         if (retriable) break;
@@ -454,17 +472,18 @@ module.exports = async function handler(req, res) {
   if (!classified || classified.kind !== "profile") return res.status(400).json({ error: "URL profil tidak dikenali atau tidak didukung.", code: "UNSUPPORTED_URL" });
   if (!["tiktok", "instagram", "facebook", "threads", "x"].includes(classified.platform)) return res.status(400).json({ error: "Profil platform ini belum didukung.", code: "UNSUPPORTED_PLATFORM" });
   try {
+    const deadline = Date.now() + GLOBAL_DEADLINE_MS;
     let raw;
     let profileInfo;
     if (classified.platform === "instagram") {
-      if (order === "newest" && offset === 0 && fastdl.isEnabled()) {
-        try {
-          raw = await fastdl.requestFastdl(classified, { limit, offset, order });
-        } catch {
-          raw = await igDirect.requestProfile(classified.handle, { limit, offset, order });
-        }
-      } else {
-        raw = await igDirect.requestProfile(classified.handle, { limit, offset, order });
+      try {
+        if (order === "newest" && offset === 0 && fastdl.isEnabled()) {
+          try { raw = await fastdl.requestFastdl(classified, { limit, offset, order }); }
+          catch { raw = await igDirect.requestProfile(classified.handle, { limit, offset, order }); }
+        } else raw = await igDirect.requestProfile(classified.handle, { limit, offset, order });
+      } catch (error) {
+        if (order !== "newest") throw error;
+        raw = await igEmbed.requestProfileEmbed(classified, { limit, offset, deadline });
       }
     } else if (classified.platform === "tiktok" && order === "oldest") {
       profileInfo = await fetchProfileInfo(classified);
@@ -479,12 +498,12 @@ module.exports = async function handler(req, res) {
     }
     let resolved = raw;
     if (raw.platform === "tiktok" && raw.items?.length) {
-      const replacements = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, resolveItem);
+      const replacements = await mapWithConcurrency(raw.items, WAVY_CONCURRENCY, item => resolveItem(item, { deadline: Math.min(deadline, Date.now() + 14000) }));
       resolved = {
         ...raw,
         items: raw.items.map((item, index) => {
           const replacement = replacements[index];
-          if (!replacement || !replacement.url) return item;
+          if (!replacement || !replacement.url) return { ...item, available: false };
           return { ...replacement, _sourceUrl: item._sourceUrl || replacement._sourceUrl };
         })
       };

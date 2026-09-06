@@ -155,5 +155,5 @@ test("FastDL remains disabled until an operator configures an API key or signing
 
 test("profile renderer recognizes a one-item profile as a collection", () => {
   const source = fs.readFileSync(require.resolve("../public/app.js"), "utf8");
-  assert.match(source, /const isCollection = isProfileCollection \|\| Boolean\(data\.collection\) \|\| data\.items\.length > 2;/);
+  assert.match(source, /const isCollection = isProfileCollection \|\| Boolean\(data\.collection\) \|\| data\.items\.length > 1;/);
 });

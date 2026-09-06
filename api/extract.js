@@ -11,9 +11,11 @@ const { createRateLimiter } = require("../lib/rate-limit");
 const { allowedMediaUrl, fetchAllowedMedia, mediaRequestHeaders } = require("../lib/media-policy");
 const fastdl = require("../lib/instagram-fastdl");
 const igDirect = require("../lib/instagram-direct");
+const igEmbed = require("../lib/instagram-embed");
 const wavy = require("../lib/wavy");
 const getMyFb = require("../lib/facebook-getmyfb");
 const xFxtwitter = require("../lib/x-fxtwitter");
+const mediaResolver = require("../lib/media-resolver");
 
 const TIKWM_URL = "https://www.tikwm.com/api/";
 const MUSICALDOWN_URL = "https://musicaldown.com/id";
@@ -23,7 +25,7 @@ const INSTAGRAM_PROFILE_URLS = [
   "https://www.instagram.com/api/v1/users/web_profile_info/"
 ];
 const PROVIDER_TIMEOUT_MS = 15000;
-const rateLimit = createRateLimiter({ max: 20 });
+const rateLimit = createRateLimiter({ max: 20, namespace: "extract" });
 const GLOBAL_DEADLINE_MS = 46000;
 const PROFILE_LIMIT = 24;
 let extractor;
@@ -147,18 +149,22 @@ async function requestYtdlp(classified, mode, { limit = PROFILE_LIMIT, offset = 
 
 async function requestTikwm(classified, mode) {
   if (classified.platform !== "tiktok" || mode === "mute" || classified.kind === "profile") throw new Error("TikWM tidak cocok untuk URL ini.");
-  const body = new URLSearchParams({ url: classified.url, hd: "1" });
-  const response = await fetch(TIKWM_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" }, body, signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) });
+  const endpoint = new URL(TIKWM_URL);
+  endpoint.search = new URLSearchParams({ url: classified.url, hd: "1" }).toString();
+  const response = await fetch(endpoint, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) });
   const payload = await response.json().catch(() => null);
   if (!response.ok || payload?.code !== 0 || !payload.data) throw new Error(payload?.msg || `TikWM gagal (${response.status}).`);
   const data = payload.data;
+  const absolute = value => { try { return value ? new URL(value, TIKWM_URL).toString() : null; } catch { return null; } };
+  for (const key of ["hdplay", "play", "music", "cover"]) data[key] = absolute(data[key]);
+  if (Array.isArray(data.images)) data.images = data.images.map(absolute).filter(Boolean);
   const width = Number(data.width) || undefined;
   const height = Number(data.height) || undefined;
   if (mode === "audio") return { platform: "tiktok", provider: "tikwm", resourceKind: classified.kind, title: data.title || "TikTok audio", author: data.author?.nickname || "", items: [{ type: "audio", url: data.music, thumb: data.cover, filename: `${safeName(data.title || "tiktok")}.mp3`, quality: "Original audio" }] };
   if (Array.isArray(data.images) && data.images.length) return { platform: "tiktok", provider: "tikwm", resourceKind: classified.kind, title: data.title || "TikTok slideshow", author: data.author?.nickname || "", items: data.images.map((url, i) => ({ type: "image", url, thumb: url, filename: `${safeName(data.title || "tiktok")}-${i + 1}.jpg`, quality: width && height ? `${width}×${height}` : "Original", width, height })) };
   const url = data.hdplay || data.play;
   if (!url) throw new Error("Video TikTok tidak tersedia.");
-  return { platform: "tiktok", provider: "tikwm", resourceKind: classified.kind, title: data.title || "TikTok video", author: data.author?.nickname || "", items: [{ type: "video", url, thumb: data.cover, filename: `${safeName(data.title || "tiktok")}.mp4`, quality: width && height ? `${width}×${height}` : url === data.hdplay ? "HD" : "Standard", width, height, hasAudio: true, codec: "h264" }] };
+  return { platform: "tiktok", provider: "tikwm", resourceKind: classified.kind, title: data.title || "TikTok video", author: data.author?.nickname || "", items: [{ type: "video", url, fallbackUrls: [data.play].filter(candidate => candidate && candidate !== url), thumb: data.cover, filename: `${safeName(data.title || "tiktok")}.mp4`, quality: width && height ? `${width}×${height}` : url === data.hdplay ? "HD" : "Standard", width, height, hasAudio: true, codec: "h264" }] };
 }
 
 function decodeHtml(value) {
@@ -251,7 +257,7 @@ async function requestMusicalDown(classified, mode) {
 }
 
 async function requestThreads(classified, mode) {
-  if (classified.platform !== "threads" || mode !== "auto" || classified.kind === "profile") throw new Error("Provider Threads tidak cocok untuk URL ini.");
+  if (classified.platform !== "threads" || !["auto", "image"].includes(mode) || classified.kind === "profile") throw new Error("Provider Threads tidak cocok untuk URL ini.");
   const response = await fetch(THREADSDL_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ url: classified.url }), signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) });
   const data = await response.json().catch(() => null);
   if (!response.ok || !Array.isArray(data?.medias)) throw new Error(data?.error || `Threads gagal (${response.status}).`);
@@ -259,7 +265,7 @@ async function requestThreads(classified, mode) {
   for (const [index, media] of data.medias.entries()) {
     const video = Array.isArray(media.videos) ? media.videos.filter(v => v?.url).sort((a, b) => ((Number(b.width) || 0) * (Number(b.height) || 0)) - ((Number(a.width) || 0) * (Number(a.height) || 0)))[0] : null;
     const image = Array.isArray(media.images) ? media.images.filter(v => v?.url).sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0))[0] : null;
-    if (video) items.push({ type: "video", url: video.url, thumb: media.cover || null, filename: `threads-${index + 1}.mp4`, quality: video.width && video.height ? `${video.width}×${video.height}` : media.height ? `${media.height}p` : "HD", hasAudio: true, width: video.width || media.width || undefined, height: video.height || media.height || undefined });
+    if (video && mode !== "image") items.push({ type: "video", url: video.url, thumb: media.cover || null, filename: `threads-${index + 1}.mp4`, quality: video.width && video.height ? `${video.width}×${video.height}` : media.height ? `${media.height}p` : "HD", hasAudio: true, width: video.width || media.width || undefined, height: video.height || media.height || undefined });
     else if (image) items.push({ type: "image", url: image.url, thumb: image.url, filename: `threads-${index + 1}.jpg`, quality: image.width && image.height ? `${image.width}×${image.height}` : "Original", width: image.width || undefined, height: image.height || undefined });
   }
   return { platform: "threads", provider: "threadsdl", resourceKind: classified.kind, title: String(data.text || "Threads media").split("\n")[0], description: data.text || "", author: data.username || classified.handle || "", tags: collectTags(data.text || ""), items };
@@ -316,40 +322,15 @@ async function requestCobalt(classified, mode, endpoint) {
 }
 
 async function probeDownloadable(url) {
-  if (!allowedMediaUrl(url)) return false;
-  try {
-    const response = await fetchAllowedMedia(url, {
-      headers: mediaRequestHeaders(url, "bytes=0-0"),
-      timeoutMs: 6000
-    });
-    await response.body?.cancel();
-    return response.status === 200 || response.status === 206;
-  } catch {
-    return false;
-  }
-}
-
-async function probeDownloadableItems(result) {
-  const items = result?.items || [];
-  if (!items.length) return false;
-  for (const item of items) {
-    if (!(await probeDownloadable(item.url))) return false;
-  }
-  return true;
+  return mediaResolver.probeDownloadable(url);
 }
 
 async function verifyTiktokResult(winning, providerResults) {
-  const items = winning?.items || [];
-  if (!items.length || await probeDownloadableItems(winning)) return winning;
-  const candidates = providerResults
-    .filter(entry => entry.result !== winning)
-    .sort((a, b) => b.score - a.score);
+  const candidates = [winning, ...providerResults.filter(entry => entry.result !== winning).sort((a, b) => b.score - a.score).map(entry => entry.result)];
   for (const candidate of candidates) {
-    if (candidate.result?.items?.length && await probeDownloadableItems(candidate.result)) {
-      return { ...candidate.result };
-    }
+    try { return await mediaResolver.verifyMediaResult(candidate); } catch {}
   }
-  return winning;
+  throw Object.assign(new Error("Tidak ada file media yang dapat diunduh dari sumber ini."), { code: "MEDIA_UNAVAILABLE" });
 }
 
 function resultQuality(result) {
@@ -373,7 +354,7 @@ function resultQuality(result) {
   return max;
 }
 
-async function raceProviders(attempts, mode, { graceMs = 8000 } = {}) {
+async function raceProviders(attempts, mode, { graceMs = 3500, verify = null } = {}) {
   const startedAt = Date.now();
   const failures = [];
   return new Promise((resolve, reject) => {
@@ -387,7 +368,7 @@ async function raceProviders(attempts, mode, { graceMs = 8000 } = {}) {
     const fail = error => { if (finished) return; finished = true; clearTimeout(graceTimer); clearTimeout(deadlineTimer); reject(error); };
     const deadlineTimer = setTimeout(() => fail(Object.assign(new Error("Batas waktu pemrosesan tercapai."), { code: "GLOBAL_TIMEOUT", details: failures })), GLOBAL_DEADLINE_MS);
     for (const attempt of attempts) {
-      Promise.resolve().then(attempt.run).then(raw => validateResult(raw, { mode })).then(result => {
+      Promise.resolve().then(attempt.run).then(raw => validateResult(raw, { mode })).then(result => verify ? verify(result) : result).then(result => {
         const score = resultQuality(result);
         const priority = Number(typeof attempt.priority === "function" ? attempt.priority(result) : attempt.priority) || 0;
         results.push({ result, provider: attempt.name, score });
@@ -414,17 +395,21 @@ function buildAttempts(classified, mode) {
       attempts.push({ name: "instagram-profile", run: () => requestInstagramProfile(classified) });
       attempts.push({ name: "instagram-direct", run: () => igDirect.requestProfile(classified.handle) });
     }
+    if (["post", "reel"].includes(classified.kind)) {
+      attempts.push({ name: "instagram-embed", priority: 5, run: () => igEmbed.requestInstagramEmbed(classified, mode) });
+      attempts.push({ name: "vxinstagram", run: () => igEmbed.requestVxInstagram(classified, mode) });
+    }
     if (fastdl.isEnabled()) attempts.push({ name: "fastdl", run: () => fastdl.requestFastdl(classified) });
     attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
   }
   if (classified.platform === "facebook") {
     attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
     if (classified.kind !== "profile" && ["auto", "image"].includes(mode)) attempts.push({ name: "getmyfb", run: () => getMyFb.requestGetMyFb(classified, mode) });
-    return attempts;
   }
   if (["threads", "x"].includes(classified.platform)) attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
   if (classified.platform === "x") attempts.unshift({ name: "fxtwitter", priority: 10, run: () => xFxtwitter.requestXTwitter(classified, mode) });
   if (classified.platform === "tiktok") {
+    attempts.push({ name: "wavy", run: () => wavy.requestWavy(classified, mode) });
     attempts.push({ name: "musicaldown", run: () => requestMusicalDown(classified, mode) });
     attempts.push({ name: "tikwm", run: () => requestTikwm(classified, mode) });
   }
@@ -449,15 +434,8 @@ module.exports = async function handler(req, res) {
   if (!classified || classified.kind === "unknown") return res.status(400).json({ error: "URL publik tidak dikenali atau tidak didukung.", code: "UNSUPPORTED_URL" });
   if (classified.kind === "profile" && mode !== "auto") return res.status(400).json({ error: "Profil hanya mendukung mode otomatis.", code: "PROFILE_MODE_UNSUPPORTED" });
   try {
-    const { result: racedResult, durationMs, failures = [], results: providerResults = [] } = await raceProviders(buildAttempts(classified, mode), mode);
-    let result = ["tiktok", "facebook"].includes(classified.platform) ? await verifyTiktokResult(racedResult, providerResults) : racedResult;
-    if (result !== racedResult) {
-      const warning = classified.platform === "tiktok"
-        ? "Resolusi tertinggi membutuhkan sesi platform; dipakai kualitas publik terbaik yang dapat diunduh."
-        : "Hasil provider utama tidak dapat diunduh; dipakai sumber Facebook publik lainnya.";
-      result.warnings = [...(result.warnings || []), warning];
-      result.downloadFallback = true;
-    }
+    const { result: racedResult, durationMs, failures = [] } = await raceProviders(buildAttempts(classified, mode), mode, { verify: mediaResolver.verifyMediaResult });
+    const result = racedResult;
     result.durationMs = durationMs;
     result.providerFailures = failures.map(item => ({ provider: item.provider, code: item.code, message: item.message }));
     applyDownloadFilenames(result);

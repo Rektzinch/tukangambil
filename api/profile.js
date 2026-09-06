@@ -185,17 +185,7 @@ async function requestTikTokOldest(classified, { limit, offset }, profileInfo) {
 }
 
 async function probeDownloadable(url) {
-  try {
-    const headers = { "User-Agent": "Mozilla/5.0 Chrome/127", "Accept-Encoding": "identity", Range: "bytes=0-0" };
-    const host = new URL(url).hostname.toLowerCase();
-    if (host.includes("tiktok")) headers.Referer = "https://www.tiktok.com/";
-    else if (host.includes("instagram")) headers.Referer = "https://www.instagram.com/";
-    else if (host.includes("fbcdn")) headers.Referer = "https://www.facebook.com/";
-    const response = await fetch(url, { headers, redirect: "follow", signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
-    return response.status === 200 || response.status === 206;
-  } catch {
-    return false;
-  }
+  return require("./extract").probeDownloadable(url);
 }
 
 async function mapWithConcurrency(items, limit, mapper) {

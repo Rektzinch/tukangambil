@@ -187,17 +187,21 @@ function explainMediaError(error) {
 
 function platformFromUrl(value) {
   try {
-    const host = new URL(normalizeUrl(value)).hostname.replace(/^www\./, "").toLowerCase();
-    if (host.includes("instagram.com")) return "Instagram";
-    if (host.includes("tiktok.com")) return "TikTok";
-    if (host.includes("facebook.com") || host === "fb.watch") return "Facebook";
-    if (host.includes("threads.net") || host.includes("threads.com")) return "Threads";
-    if (host === "x.com" || host.includes("twitter.com")) return "X";
+    const parsed = new URL(normalizeUrl(value));
+    if (!["https:", "http:"].includes(parsed.protocol)) return "";
+    const host = parsed.hostname.toLowerCase();
+    const matches = domain => host === domain || host.endsWith(`.${domain}`);
+    if (matches("instagram.com")) return "Instagram";
+    if (matches("tiktok.com")) return "TikTok";
+    if (matches("facebook.com") || host === "fb.watch") return "Facebook";
+    if (matches("threads.net") || matches("threads.com")) return "Threads";
+    if (matches("x.com") || matches("twitter.com")) return "X";
   } catch {}
   return "";
 }
 
 function updateUrlFeedback() {
+  input.removeAttribute("aria-invalid");
   if (clearBtn) clearBtn.disabled = !input.value.trim();
   const platform = platformFromUrl(input.value);
   if (mode === "profile") {
@@ -261,47 +265,21 @@ function setScanLabel(label, sub) {
 function start() {
   const began = Date.now();
   scan.hidden = false;
-  showLoader(mode === "profile" ? "Mengambil media profil…" : "Mengekstrak media…");
+  scanProgressTrack.removeAttribute("aria-valuenow");
   scanTime.textContent = "00:00";
-  scanProgress.style.width = "12%";
-  scan.style.setProperty("--p", "12%");
-  scanPercent.textContent = "12%";
-  setScanStep(0);
+  setScanLabel("Menghubungi sumber", "Waktu tunggu bergantung pada platform. Hasil tampil setelah sumber merespons.");
   submit.disabled = true;
-  submitText.textContent = "Sedang mengambil";
+  input.readOnly = true;
+  pasteBtn.disabled = true;
+  clearBtn.disabled = true;
+  document.querySelectorAll(".mode").forEach(button => { button.disabled = true; });
+  submitText.textContent = "Sedang mengambil…";
   form.setAttribute("aria-busy", "true");
-  const kind = mode === "profile" ? "profil" : resourceKind(input.value);
-
-  function updateScan(seconds) {
-    scanTime.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-    const progress = Math.min(94, Math.round(12 + 82 * (1 - Math.exp(-seconds / 14))));
-    scanProgress.style.width = `${progress}%`;
-    scanProgressTrack.setAttribute("aria-valuenow", String(progress));
-    scan.style.setProperty("--p", `${progress}%`);
-    scanPercent.textContent = `${progress}%`;
-    if (seconds >= 45) {
-      setScanStep(3);
-      setScanLabel("Masih memproses media", "Provider membutuhkan waktu lebih lama dari biasanya");
-    } else if (seconds >= 18) {
-      setScanStep(3);
-      setScanLabel("Menyiapkan preview", "Hasil akhir sedang dirapikan untuk ditampilkan");
-    } else if (seconds >= 8) {
-      setScanStep(2);
-      setScanLabel("Memilih kualitas terbaik", "Membandingkan format video, gambar, dan audio");
-    } else if (seconds >= 3) {
-      setScanStep(1);
-      setScanLabel("Menghubungi provider", `Mencari sumber ${kind} yang dapat diunduh`);
-    } else {
-      setScanStep(0);
-      setScanLabel("Memvalidasi tautan", `Memeriksa alamat dan jenis ${kind}`);
-    }
-  }
-
-  updateScan(0);
   timer = setInterval(() => {
     const seconds = Math.floor((Date.now() - began) / 1000);
-    updateScan(seconds);
-  }, 250);
+    scanTime.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+    if (seconds >= 30) setScanLabel("Masih menunggu sumber", "Platform belum merespons. Pemeriksaan berhenti otomatis setelah satu menit.");
+  }, 1000);
 }
 
 function stop() {
@@ -309,12 +287,12 @@ function stop() {
   timer = null;
   scan.hidden = true;
   hideLoader();
-  scanProgress.style.width = "0";
-  scan.style.setProperty("--p", "0%");
-  scanPercent.textContent = "0%";
-  scanProgressTrack.setAttribute("aria-valuenow", "0");
   submit.disabled = false;
-  submitText.textContent = mode === "profile" ? "Ambil media profil" : "Ambil dan preview";
+  input.readOnly = false;
+  pasteBtn.disabled = false;
+  document.querySelectorAll(".mode").forEach(button => { button.disabled = false; });
+  updateUrlFeedback();
+  submitText.textContent = mode === "profile" ? "Ambil media profil" : "Ambil dan periksa";
   form.removeAttribute("aria-busy");
 }
 
@@ -331,14 +309,12 @@ function mediaUrl(item, preview = false) {
 
 function thumbUrl(item) {
   if (!item.thumb) return "";
-  const query = new URLSearchParams({ url: item.thumb, filename: "preview.jpg", preview: "1" });
-  return `/api/download?${query}`;
+  return mediaUrl({ url: item.thumb, filename: "preview.jpg", downloadToken: item.thumbToken }, true);
 }
 
 function avatarUrl(item) {
   if (!item?.avatar) return "";
-  const query = new URLSearchParams({ url: item.avatar, filename: "avatar.jpg", preview: "1" });
-  return `/api/download?${query}`;
+  return mediaUrl({ url: item.avatar, filename: "avatar.jpg", downloadToken: item.avatarToken }, true);
 }
 
 function preview(item) {
@@ -534,7 +510,7 @@ document.querySelectorAll(".mode").forEach(button => button.addEventListener("cl
   button.classList.add("active");
   button.setAttribute("aria-pressed", "true");
   mode = button.dataset.mode;
-  submitText.textContent = mode === "profile" ? "Ambil media profil" : "Ambil dan preview";
+  submitText.textContent = mode === "profile" ? "Ambil media profil" : "Ambil dan periksa";
   updateUrlFeedback();
   show(`Mode ${button.querySelector("b")?.textContent || mode} dipilih.`);
 }));
@@ -565,10 +541,13 @@ form.addEventListener("submit", async event => {
   event.preventDefault();
   if (extractController) return;
   const url = normalizeUrl(input.value);
-  if (!url) {
-    show("Masukkan tautan media terlebih dahulu.", "error");
+  if (!url || !platformFromUrl(url)) {
+    input.setAttribute("aria-invalid", "true");
+    show(!url ? "Masukkan tautan media terlebih dahulu." : "Gunakan tautan TikTok, Instagram, Facebook, Threads, atau X yang valid.", "error");
+    input.focus();
     return;
   }
+  input.removeAttribute("aria-invalid");
   input.value = url;
   results.hidden = true;
   message.className = "message";
@@ -704,4 +683,4 @@ profileNotice?.addEventListener("close", () => {
 renderStats();
 observeReveals();
 updateUrlFeedback();
-openProfileNotice();
+document.querySelector("#profileInfo")?.addEventListener("click", openProfileNotice);

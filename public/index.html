@@ -3,88 +3,66 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f3f1eb">
-  <meta name="description" content="Workbench untuk memeriksa dan mengunduh media publik dari satu tautan.">
-  <title>TukangAmbil — Public media workbench</title>
-  <link rel="stylesheet" href="/style.css?v=20260812-workbench">
+  <meta name="theme-color" content="#f4f0e7">
+  <meta name="description" content="Tempel tautan publik, periksa hasilnya, simpan medianya. Pengunduh TikTok, Instagram, Facebook, Threads, dan X.">
+  <title>tukangambil — Tautannya sini. Medianya bawa.</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css?v=ambil-3">
 </head>
 <body>
-<div id="toast" class="toast" hidden role="status" aria-live="polite" aria-atomic="true"></div>
-
-<dialog id="profileNotice" class="profile-notice" aria-labelledby="profileNoticeTitle" aria-describedby="profileNoticeDescription" aria-modal="true">
+<a class="skip-link" href="#mediaUrl">Langsung ke kolom tautan</a>
+<div id="toast" class="toast" hidden aria-hidden="true"></div>
+<dialog id="profileNotice" class="profile-notice" aria-labelledby="profileNoticeTitle" aria-describedby="profileNoticeDescription">
   <div class="modal-box profile-notice-box">
-    <div class="modal-top"><b>Media profil</b><button type="button" data-close-profile-notice aria-label="Tutup informasi">×</button></div>
+    <div class="modal-top"><b>Catatan / media profil</b><button type="button" data-close-profile-notice aria-label="Tutup informasi">×</button></div>
     <div class="profile-notice-content">
-      <span class="profile-notice-kicker">Catatan akses</span>
-      <h2 id="profileNoticeTitle">Koleksi hanya tersedia untuk profil publik.</h2>
-      <p id="profileNoticeDescription">Gunakan tautan profil publik TikTok, Instagram, Facebook, Threads, atau X. Ketersediaan media mengikuti sumber dan dapat berubah tanpa pemberitahuan.</p>
-      <button class="profile-notice-action" type="button" data-close-profile-notice>Mulai mengunduh</button>
+      <span class="section-kicker">BACA SEBELUM MENGAMBIL</span>
+      <h2 id="profileNoticeTitle">Yang publik, yang bisa diambil.</h2>
+      <p id="profileNoticeDescription">Gunakan tautan profil publik TikTok, Instagram, Facebook, Threads, atau X. Akun privat tidak diproses. Ketersediaan dan urutan media mengikuti akses yang diberikan sumber.</p>
+      <button class="profile-notice-action" type="button" data-close-profile-notice>Mengerti, lanjutkan →</button>
     </div>
   </div>
 </dialog>
-
 <header class="topbar">
-  <a class="brand" href="/" aria-label="TukangAmbil beranda"><span class="brand-mark" aria-hidden="true">TA</span><span>TukangAmbil</span></a>
-  <nav class="topnav" aria-label="Navigasi utama"><a href="#download" aria-current="page">Workbench</a><a href="#stats">Aktivitas</a><a href="#help">Bantuan</a></nav>
-  <div class="status-pill" aria-label="Status layanan"><span class="dot" aria-hidden="true"></span><span>LAYANAN TERHUBUNG</span></div>
+  <a class="brand" href="/" aria-label="tukangambil beranda">tukangambil<span aria-hidden="true">↙</span></a>
+  <nav class="topnav" aria-label="Navigasi utama"><a href="#download">Ambil media</a><a href="#activity">Catatan</a><a href="#help">Cara pakai</a></nav>
+  <span class="edition">ALAT SIMPAN MEDIA PUBLIK</span>
 </header>
-
 <main class="app-shell">
-  <aside class="side-rail" aria-label="Ringkasan workbench">
-    <div class="rail-label">PUBLIC MEDIA / 01</div>
-    <h1>Ambil media<br>tanpa <em>tebakan.</em></h1>
-    <p class="rail-lead">Masukkan satu tautan. Kami periksa sumber, memetakan format yang tersedia, lalu menyiapkan unduhan yang bisa Anda tinjau.</p>
-    <div class="rail-rule"></div>
-    <section class="source-brief" aria-label="Batasan layanan">
-      <p class="rail-label">SEBELUM MULAI</p>
-      <div><b>Hanya publik</b><span>Konten privat dan akun terkunci tidak diproses.</span></div>
-      <div><b>Status yang jelas</b><span>Jika sumber berubah, kami jelaskan tindakan berikutnya.</span></div>
-      <div><b>Tidak diarsipkan</b><span>Tautan tidak disimpan sebagai riwayat server.</span></div>
-    </section>
-    <p class="rail-footer">TIKTOK · INSTAGRAM · FACEBOOK · THREADS · X</p>
-  </aside>
-
-  <section class="work-area" id="download" aria-label="Unduh media publik">
-    <header class="work-heading">
-      <div><p class="section-kicker">INTAKE</p><h2>Mulai pekerjaan baru</h2></div>
-      <p>Tempel tautan postingan atau profil publik. Pilih output setelah sumber terbaca.</p>
-    </header>
-
-    <form id="downloadForm" class="panel" novalidate>
-      <div class="panel-heading"><div><span class="section-kicker">SUMBER</span><h2>Tautan publik</h2></div><span class="panel-stamp" aria-hidden="true">01</span></div>
-      <label for="mediaUrl">URL postingan atau profil</label>
-      <div class="url-row"><div class="input-shell"><span class="url-icon" aria-hidden="true">↗</span><input id="mediaUrl" type="url" inputmode="url" placeholder="https://instagram.com/reel/..." required><span class="input-check" aria-hidden="true">✓</span></div><button id="pasteBtn" type="button">Tempel</button><button id="clearBtn" class="clear-url" type="button" aria-label="Bersihkan tautan" title="Bersihkan tautan">Reset</button></div>
-      <div class="mode-block"><div class="mode-block-head"><span class="section-kicker">JENIS OUTPUT</span><small>Pilih sebelum memulai pemeriksaan.</small></div><div class="modes" role="group" aria-label="Mode unduhan">
-        <button type="button" class="mode active" data-mode="auto" aria-pressed="true"><span class="mode-icon">01</span><span><b>Video</b><small>Audio dan visual</small></span></button>
-        <button type="button" class="mode" data-mode="image" aria-pressed="false"><span class="mode-icon">02</span><span><b>Gambar</b><small>Foto atau carousel</small></span></button>
-        <button type="button" class="mode" data-mode="audio" aria-pressed="false"><span class="mode-icon">03</span><span><b>Audio</b><small>Track saja</small></span></button>
-        <button type="button" class="mode" data-mode="profile" aria-pressed="false"><span class="mode-icon">04</span><span><b>Profil</b><small>Koleksi terbaru</small></span></button>
-      </div></div>
-      <button class="submit" type="submit"><span>PERIKSA SUMBER</span><i aria-hidden="true">→</i></button>
-      <div id="scan" class="scan" hidden role="status" aria-live="polite">
-        <div class="scan-ring" aria-hidden="true"><div class="scan-ring-core"><strong class="scan-percent" id="scanPercent">12%</strong></div></div>
-        <div class="scan-copy"><b id="scanLabel">Memvalidasi tautan</b><small id="scanSubLabel">Kami sedang meminta format dari sumber.</small><div class="scan-steps" aria-hidden="true"><span class="active" data-step="0">Validasi</span><i></i><span data-step="1">Sumber</span><i></i><span data-step="2">Format</span><i></i><span data-step="3">Hasil</span></div></div>
-        <strong class="scan-time" id="scanTime">00:00</strong>
-        <div class="scan-progress" id="scanProgressTrack" role="progressbar" aria-label="Progres ekstraksi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="12"><span id="scanProgress"></span></div>
-      </div>
-      <div id="message" class="message" role="status" aria-live="polite"></div>
-      <p class="form-note" id="formHint"><span id="formHintIcon">●</span><span id="formHintText">Gunakan tautan asli, bukan URL CDN atau tautan yang dibagikan ulang.</span></p>
-    </form>
-
-    <section class="state-guide" aria-label="Tahapan kerja">
-      <div><span>01</span><p><b>Masukkan</b> Tautan asli dari sumber publik.</p></div>
-      <div><span>02</span><p><b>Periksa</b> Format dan kualitas yang tersedia.</p></div>
-      <div><span>03</span><p><b>Simpan</b> Hasil yang sudah siap diunduh.</p></div>
-    </section>
-
-    <section id="results" hidden></section>
-    <div id="loader" class="loader" hidden role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><b id="loaderText">Memuat media…</b></div>
-
-    <section class="stats reveal-on-scroll" id="stats" aria-label="Statistik penggunaan"><div><small>Permintaan</small><strong id="statTotal">0</strong></div><div><small>Berhasil</small><strong id="statSuccess">0</strong></div><div><small>Gagal</small><strong id="statFailed">0</strong></div><div><small>Rasio sukses</small><strong id="statRate">0%</strong></div></section>
-    <section class="platform-stats reveal-on-scroll" id="platformStats" aria-labelledby="platformStatsTitle"><div class="platform-stats-head"><div><span class="section-kicker">AKTIVITAS PERANGKAT</span><h2 id="platformStatsTitle">Riwayat lokal</h2></div><p>Disimpan di browser ini. Tidak dikirim ke server.</p></div><div class="platform-rank" id="platformRank"></div></section>
+  <section class="intro" aria-labelledby="pageTitle">
+    <div class="intro-copy"><p class="section-kicker">TAUTAN MASUK / MEDIA KELUAR</p><h1 id="pageTitle">Tautannya sini.<br>Medianya <span>bawa.</span></h1></div>
+    <div class="intro-note"><span class="direction-mark" aria-hidden="true">↓</span><p>Video, foto, atau audio.<br>Periksa dulu. Simpan yang perlu.</p><p class="small-print">Untuk konten publik yang berhak kamu simpan.</p></div>
   </section>
+  <div class="platform-strip" aria-label="Platform yang didukung"><span>DARI</span><p>TikTok <i>/</i> Instagram <i>/</i> Facebook <i>/</i> Threads <i>/</i> X</p></div>
+  <div class="workspace">
+    <section class="work-area" id="download" aria-labelledby="intakeTitle">
+      <header class="work-heading"><p class="section-kicker">01 / MASUKKAN SUMBER</p><h2 id="intakeTitle">Mau ambil apa?</h2></header>
+      <form id="downloadForm" novalidate>
+        <label for="mediaUrl">Tautan postingan atau profil publik</label>
+        <div class="url-row"><div class="input-shell"><input id="mediaUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Tempel https://… di sini" aria-describedby="formHint message" required></div><button id="pasteBtn" type="button">Tempel</button><button id="clearBtn" class="clear-url" type="button" aria-label="Bersihkan tautan">Hapus</button></div>
+        <div class="mode-block"><div class="mode-block-head"><span class="section-kicker">PILIH HASIL</span><span>Format mengikuti sumber.</span></div><div class="modes" role="group" aria-label="Mode unduhan">
+          <button type="button" class="mode active" data-mode="auto" aria-pressed="true"><b>Video</b><small>+ audio asli</small></button>
+          <button type="button" class="mode" data-mode="image" aria-pressed="false"><b>Gambar</b><small>Foto / carousel</small></button>
+          <button type="button" class="mode" data-mode="audio" aria-pressed="false"><b>Audio</b><small>Suara saja</small></button>
+          <button type="button" class="mode" data-mode="profile" aria-pressed="false"><b>Profil</b><small>Koleksi publik</small></button>
+        </div></div>
+        <button class="submit" type="submit"><span>Ambil dan periksa</span><i aria-hidden="true">↗</i></button>
+        <div id="scan" class="scan" hidden role="status" aria-live="polite">
+          <div class="scan-copy"><b id="scanLabel">Menghubungi sumber</b><small id="scanSubLabel">Waktu tunggu bergantung pada platform.</small></div><strong class="scan-time" id="scanTime" aria-hidden="true">00:00</strong>
+          <span id="scanPercent" hidden></span><div id="scanProgressTrack" class="scan-progress" role="progressbar" aria-label="Menunggu respons sumber"><span id="scanProgress"></span></div>
+        </div>
+        <div id="message" class="message" role="status" aria-live="polite" aria-atomic="true"></div>
+        <p class="form-note" id="formHint"><span id="formHintIcon" aria-hidden="true">↳</span><span id="formHintText">Gunakan tautan asli dari platform, bukan alamat file CDN.</span></p>
+      </form>
+      <section id="results" tabindex="-1" aria-label="Hasil media" hidden></section>
+      <div id="loader" class="loader" hidden><span class="spinner" aria-hidden="true"></span><b id="loaderText">Memuat media…</b></div>
+    </section>
+    <aside class="field-notes" id="help" aria-labelledby="helpTitle"><p class="section-kicker">PETUNJUK SINGKAT</p><h2 id="helpTitle">Bukan sulap.<br>Cukup satu tautan.</h2><ol><li><b>Salin dari sumbernya.</b><p>Buka postingan, pilih bagikan, lalu salin tautannya.</p></li><li><b>Periksa sebelum simpan.</b><p>Pilih jenis media. Lihat pratinjau dan kualitas yang tersedia.</p></li><li><b>Bawa pulang filenya.</b><p>Unduh satu media atau seluruh koleksi. Izinkan unduhan beruntun bila browser meminta.</p></li></ol><button id="profileInfo" class="text-button" type="button">Tentang akses profil <span aria-hidden="true">↗</span></button><div class="source-note"><b>Kalau belum berhasil?</b><p>Pastikan postingan masih publik. Sumber bisa membatasi akses; coba lagi atau gunakan tautan postingan asli.</p></div></aside>
+  </div>
+  <details class="activity" id="activity"><summary>Catatan di browser ini <span>Aktivitas lokal <i aria-hidden="true">+</i></span></summary><div class="activity-body"><p class="small-print">Jumlah pemeriksaan, bukan jumlah file terunduh. Statistik tersimpan di perangkat ini.</p><section class="stats" id="stats" aria-label="Statistik pemeriksaan"><div><small>Permintaan</small><strong id="statTotal">0</strong></div><div><small>Berhasil</small><strong id="statSuccess">0</strong></div><div><small>Gagal</small><strong id="statFailed">0</strong></div><div><small>Rasio sukses</small><strong id="statRate">0%</strong></div></section><section class="platform-stats" id="platformStats" aria-labelledby="platformStatsTitle"><h2 id="platformStatsTitle">Sumber yang kamu ambil</h2><div id="platformRank" class="platform-rank"></div></section></div></details>
 </main>
-<footer id="help"><span>TukangAmbil</span><i>·</i> Workbench media publik <i>·</i> Gunakan hanya untuk media yang berhak Anda simpan <i>·</i> 2026</footer>
+<footer><a class="footer-brand" href="/">tukangambil↙</a><p>Ambil seperlunya. Hargai pembuatnya.</p><span>MEDIA PUBLIK / BUKAN MILIK PUBLIK</span></footer>
+<noscript><p class="noscript">Aktifkan JavaScript untuk memeriksa tautan dan mengunduh media.</p></noscript>
 <script src="/app.js" defer></script>
 </body>
 </html>

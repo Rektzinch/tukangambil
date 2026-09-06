@@ -1,9 +1,9 @@
 "use strict";
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
 const {Readable}=require("node:stream");const {pipeline}=require("node:stream/promises");
-const DEFAULT_SOURCE="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux";
+const {binaryAsset}=require("./extractor-platform");
 const pinned=Boolean(process.env.YTDLP_BINARY_URL);
-const source=process.env.YTDLP_BINARY_URL||DEFAULT_SOURCE;
+const source=process.env.YTDLP_BINARY_URL||`https://github.com/yt-dlp/yt-dlp/releases/latest/download/${binaryAsset()}`;
 const expectedSha=String(process.env.YTDLP_BINARY_SHA256||"").toLowerCase();
 if(pinned&&!expectedSha)throw new Error("YTDLP_BINARY_URL ditetapkan tetapi YTDLP_BINARY_SHA256 wajib diisi untuk verifikasi checksum.");
 if(!pinned&&!expectedSha)console.warn("yt-dlp diunduh dari 'latest' tanpa checksum; tetapkan YTDLP_BINARY_URL dan YTDLP_BINARY_SHA256 untuk build reproducible.");

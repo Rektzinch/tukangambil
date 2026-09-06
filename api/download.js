@@ -1,4 +1,5 @@
 const { Readable, Transform } = require("node:stream");
+const { pipeline } = require("node:stream/promises");
 const { safeFilename, mimeFromFilename, verifyDownloadToken, sanitizeProviderError } = require("../lib/core");
 const { createRateLimiter } = require("../lib/rate-limit");
 const { allowedMediaUrl, fetchAllowedMedia, mediaRequestHeaders } = require("../lib/media-policy");
@@ -33,8 +34,8 @@ function isDownloadable(filename, type) {
   return mimeFromFilename(filename) !== "application/octet-stream";
 }
 
-async function fetchAllowed(url, headers) {
-  return fetchAllowedMedia(url, { headers, timeoutMs: 40_000 });
+async function fetchAllowed(url, headers, signal) {
+  return fetchAllowedMedia(url, { headers, timeoutMs: 40_000, signal });
 }
 
 module.exports = async function handler(req, res) {
@@ -49,7 +50,8 @@ module.exports = async function handler(req, res) {
   }
 
   const tokenData = verifyDownloadToken(req.query?.token);
-  const rawUrl = tokenData?.url || (sameOriginBrowserRequest(req) ? String(req.query?.url || "") : "");
+  const rawFallback = !String(process.env.DOWNLOAD_TOKEN_SECRET || "").trim() && !req.query?.token && sameOriginBrowserRequest(req);
+  const rawUrl = tokenData?.url || (rawFallback ? String(req.query?.url || "") : "");
   if (!rawUrl) {
     return res.status(401).json({ error: "Token unduhan tidak valid atau permintaan browser bukan same-origin." });
   }
@@ -58,13 +60,33 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: "URL media tidak diizinkan atau token tidak valid." });
   }
 
+  let upstream;
+  const controller = new AbortController();
+  const disconnect = () => { if (!res.writableFinished) controller.abort(); };
+  req.once?.("aborted", disconnect);
+  res.once?.("close", disconnect);
+  if (req.aborted || res.destroyed) controller.abort();
   try {
     const preview = req.query?.preview === "1";
-    const upstream = await fetchAllowed(rawUrl, mediaRequestHeaders(rawUrl, req.headers?.range));
+    upstream = await fetchAllowed(rawUrl, mediaRequestHeaders(rawUrl, req.headers?.range), controller.signal);
+    if (upstream.status === 416) {
+      await upstream.body?.cancel();
+      const contentRange = upstream.headers.get("content-range");
+      if (/^bytes \*\/\d+$/.test(contentRange || "")) res.setHeader("Content-Range", contentRange);
+      return res.status(416).json({ error: "Rentang media tidak tersedia." });
+    }
     if (!upstream.ok || !upstream.body) throw new Error(`Media upstream gagal (${upstream.status}).`);
 
     const length = Number(upstream.headers.get("content-length")) || 0;
     if (length > MAX_BYTES) throw new Error("Ukuran media melewati batas layanan.");
+    if (upstream.status === 206) {
+      const match = /^bytes (\d+)-(\d+)\/(\d+|\*)$/.exec(upstream.headers.get("content-range") || "");
+      if (!match) throw new Error("Rentang media upstream tidak valid.");
+      const start = Number(match[1]), end = Number(match[2]), total = match[3] === "*" ? null : Number(match[3]);
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end < start ||
+          (total !== null && (!Number.isSafeInteger(total) || end >= total)) ||
+          (length && length !== end - start + 1)) throw new Error("Rentang media upstream tidak valid.");
+    }
 
     const type = upstream.headers.get("content-type");
     if (!isDownloadable(filename, type)) throw new Error("Respons upstream bukan media.");
@@ -89,12 +111,15 @@ module.exports = async function handler(req, res) {
       }
     });
     const stream = Readable.fromWeb(upstream.body);
-    stream.on("error", error => res.destroy(error));
-    limiter.on("error", error => res.destroy(error));
-    stream.pipe(limiter).pipe(res);
+    await pipeline(stream, limiter, res, { signal: controller.signal });
   } catch (error) {
+    if (res.destroyed || controller.signal.aborted) return;
     if (!res.headersSent) return res.status(502).json({ error: "File belum dapat diunduh.", detail: sanitizeProviderError(error).message });
     res.destroy(error);
+  } finally {
+    if (upstream?.body && !upstream.body.locked) await upstream.body.cancel().catch(() => {});
+    req.removeListener?.("aborted", disconnect);
+    res.removeListener?.("close", disconnect);
   }
 };
 

@@ -9,7 +9,7 @@
   <meta property="og:description" content="Satu tautan. Beres. Unduh video, foto, dan audio dari tautan publik.">
   <meta property="og:type" content="website">
   <title>TukangAmbil — Ambil aja.</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/fonts/sora-variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/style.css?v=20260906-ambil-aja">
 </head>
@@ -65,13 +65,14 @@
       <button class="submit" type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-download"/></svg><span>Ambil sekarang</span></button>
       <div id="scan" class="scan" hidden role="status" aria-live="polite">
         <span class="spinner" aria-hidden="true"></span>
-        <div class="scan-copy"><b id="scanLabel">Memeriksa tautan</b><small id="scanSubLabel">Sebentar, media kamu sedang disiapkan.</small><div class="scan-steps" aria-hidden="true"><span class="active" data-step="0">Tautan</span><i></i><span data-step="1">Sumber</span><i></i><span data-step="2">Kualitas</span><i></i><span data-step="3">Hasil</span></div></div>
+        <div class="scan-copy"><b id="scanLabel">Memeriksa tautan</b><small id="scanSubLabel">Sebentar, media kamu sedang disiapkan.</small></div>
         <strong class="scan-time" id="scanTime">00:00</strong>
         <span id="scanPercent" hidden>12%</span>
-        <div class="scan-progress" id="scanProgressTrack" role="progressbar" aria-label="Perkiraan progres pengambilan media" aria-valuemin="0" aria-valuemax="100" aria-valuenow="12"><span id="scanProgress"></span></div>
+        <div class="scan-progress" id="scanProgressTrack" role="progressbar" aria-label="Pengambilan media sedang berlangsung" aria-valuemin="0" aria-valuemax="100"><span id="scanProgress"></span></div>
       </div>
       <div id="message" class="message" role="status" aria-live="polite"></div>
       <p class="form-note" id="formHint"><span id="formHintIcon" aria-hidden="true">ⓘ</span><span id="formHintText">Untuk konten publik yang tersedia.</span></p>
+      <button id="profileInfo" class="profile-info" type="button" hidden>Tentang koleksi profil</button>
     </form>
     <section id="results" hidden aria-label="Hasil pengambilan media"></section>
     <div id="loader" class="loader" hidden role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><b id="loaderText">Menyiapkan media…</b></div>

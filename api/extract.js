@@ -322,6 +322,7 @@ async function probeDownloadable(url) {
       headers: mediaRequestHeaders(url, "bytes=0-0"),
       timeoutMs: 6000
     });
+    await response.body?.cancel();
     return response.status === 200 || response.status === 206;
   } catch {
     return false;

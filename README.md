@@ -58,14 +58,29 @@ npm run build
 npx vercel dev
 ```
 
-Proses instalasi mengunduh binary yt-dlp Linux. Untuk build yang sepenuhnya reproducible, isi `YTDLP_BINARY_URL` dengan URL versi tetap dan `YTDLP_BINARY_SHA256` dengan checksum resminya; jika hanya salah satunya diisi, install gagal.
+Proses instalasi mengunduh binary yt-dlp Linux sesuai arsitektur runtime: x64 atau ARM64. Untuk build yang sepenuhnya reproducible, isi `YTDLP_BINARY_URL` dengan URL versi tetap yang sesuai arsitektur dan `YTDLP_BINARY_SHA256` dengan checksum resminya; jika hanya salah satunya diisi, install gagal.
+
+### UI dan pengujian browser
+
+Antarmuka memakai identitas kertas–tinta dengan aksen oranye, font Archivo lokal, layout responsif, bantuan profil opsional, dan statistik lokal yang dapat dilipat. Indikator pemrosesan bersifat indeterminate: tidak menampilkan persentase atau tahap provider yang dibuat-buat.
+
+Pengujian browser bersifat opt-in dan memakai fixture API, bukan bukti keterjangkauan provider nyata. Setelah build, jalankan server statis untuk `dist` pada port 4173, lalu dari terminal lain:
+
+```bash
+PLAYWRIGHT_MODULE=/absolute/path/to/node_modules/playwright \
+CHROME_PATH=/absolute/path/to/chrome \
+node --test test/frontend-browser.cjs
+```
+
+`FRONTEND_URL` dapat mengganti URL server, dan `SCREENSHOT_DIR` mengatur lokasi screenshot (default folder temporary sistem). Suite mencakup lebar 320/390/768/1440 px, validasi input, pemulihan error, koleksi profil, pratinjau, pagination, dan pengurutan.
 
 ## Perlindungan
 
 - Rate limit per IP pada endpoint `/api/extract` dan `/api/profile` (20/menit) serta `/api/download` (40/menit) dengan jendela 60 detik. Penegakan bersifat **best-effort per instance** di deployment serverless kecuali `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` diisi, yang menegakkannya secara persisten antar instance. Jendela `Retry-After` disesuaikan dengan sisa waktu.
 - Deteksi IP: `CF-Connecting-IP` hanya saat ada penanda Cloudflare; `X-Forwarded-For` nilai paling kanan hanya saat ada penanda proxy tepercaya (Vercel/Cloudflare); selain itu memakai `socket.remoteAddress`. Header forwarding dari koneksi langsung tidak dipercaya untuk mencegah spoofing.
 - Download dan probe media hanya dari daftar host yang diizinkan, dengan redirect divalidasi per-hop, batas ukuran streaming, dan `nosniff`.
-- Saat `DOWNLOAD_TOKEN_SECRET` diisi, unduhan memakai token HMAC bertanda tangan dengan masa berlaku 15 menit. Tanpa secret, fallback hanya menerima request browser same-origin yang menyertakan metadata fetch dan origin/referrer yang cocok; header `Referer` saja tidak cukup.
+- Saat `DOWNLOAD_TOKEN_SECRET` diisi, token HMAC wajib untuk unduhan maupun pratinjau; raw URL tidak dapat melewati mode signed. Respons menyediakan `downloadToken`, `thumbToken`, dan `profile.avatarToken` sesuai media yang tersedia. Token berlaku 15 menit; lakukan ekstraksi ulang setelah kedaluwarsa. Tanpa secret, fallback hanya menerima request browser same-origin yang menyertakan metadata fetch dan origin/referrer yang cocok; header `Referer` saja tidak cukup.
+- Streaming ditunggu sampai selesai dan dibatalkan ketika klien terputus. Body upstream yang ditolak/probe/redirect dilepas; range upstream divalidasi dan status 416 dipertahankan. Endpoint diagnostik lama `/api/probe` dinonaktifkan (404).
 - Header keamanan diterapkan global: CSP, HSTS, `X-Frame-Options: DENY`, COOP/CORP, dan lainnya.
 - Health endpoint hanya memaparkan kesiapan runtime, bukan konfigurasi rahasia.
 
